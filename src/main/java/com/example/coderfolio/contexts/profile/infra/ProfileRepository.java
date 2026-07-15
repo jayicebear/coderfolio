@@ -45,6 +45,46 @@ public class ProfileRepository {
             rs.getString("description"), rs.getString("tech_stack"), rs.getString("period")
     );
 
+    // ---------------- 개발자 둘러보기 목록 ----------------
+
+    private static final RowMapper<DeveloperSummary> DEVELOPER_MAPPER = (rs, n) -> new DeveloperSummary(
+            rs.getString("username"), rs.getString("name"), rs.getString("intro"),
+            rs.getInt("career_count"), rs.getInt("project_count")
+    );
+
+    // 가입한 개발자 목록 (최신 가입순).
+    // users 를 기준으로 profiles 를 LEFT JOIN — 기본정보를 아직 저장 안 한 새 회원도 목록에 나오게 함.
+    // (users 테이블은 login 도메인 소유지만, 자바 코드가 아니라 SQL 차원의 조회라서
+    //  도메인 간 클래스 참조 없이 값만 읽는 이 프로젝트의 연결 방식과 일관됨)
+    public List<DeveloperSummary> findDevelopers(String keyword, int limit, int offset) {
+        boolean hasKeyword = keyword != null && !keyword.isBlank();
+        String where = hasKeyword ? "WHERE u.username LIKE ? OR p.name LIKE ? OR p.intro LIKE ? " : "";
+        String sql = "SELECT u.username, p.name, p.intro, "
+                + "(SELECT COUNT(*) FROM careers c WHERE c.username = u.username) AS career_count, "
+                + "(SELECT COUNT(*) FROM projects pr WHERE pr.username = u.username) AS project_count "
+                + "FROM users u LEFT JOIN profiles p ON p.username = u.username "
+                + where + "ORDER BY u.created_at DESC LIMIT ? OFFSET ?";
+
+        if (hasKeyword) {
+            String pattern = "%" + keyword + "%";
+            return jdbcTemplate.query(sql, DEVELOPER_MAPPER, pattern, pattern, pattern, limit, offset);
+        }
+        return jdbcTemplate.query(sql, DEVELOPER_MAPPER, limit, offset);
+    }
+
+    // 검색 조건에 맞는 전체 개발자 수 (페이지 수 계산용)
+    public long countDevelopers(String keyword) {
+        boolean hasKeyword = keyword != null && !keyword.isBlank();
+        String where = hasKeyword ? "WHERE u.username LIKE ? OR p.name LIKE ? OR p.intro LIKE ?" : "";
+        String sql = "SELECT COUNT(*) FROM users u LEFT JOIN profiles p ON p.username = u.username " + where;
+
+        if (hasKeyword) {
+            String pattern = "%" + keyword + "%";
+            return jdbcTemplate.queryForObject(sql, Long.class, pattern, pattern, pattern);
+        }
+        return jdbcTemplate.queryForObject(sql, Long.class);
+    }
+
     // ---------------- 기본 정보 (profiles) ----------------
 
     // 있으면 UPDATE, 없으면 INSERT (username 이 UNIQUE 라서 가능한 MySQL 문법)

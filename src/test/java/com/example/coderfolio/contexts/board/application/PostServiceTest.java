@@ -1,5 +1,6 @@
 package com.example.coderfolio.contexts.board.application;
 
+import com.example.coderfolio.contexts.board.application.dto.LikeResult;
 import com.example.coderfolio.contexts.board.application.dto.PostPageResult;
 import com.example.coderfolio.contexts.board.application.dto.PostResult;
 import com.example.coderfolio.contexts.board.application.dto.UpdatePostCommand;
@@ -45,9 +46,9 @@ class PostServiceTest {
     @InjectMocks
     PostService postService;
 
-    // DB에서 읽어온 것처럼 흉내 낸 기존 글 (id=1, 작성자 maru)
+    // DB에서 읽어온 것처럼 흉내 낸 기존 글 (id=1, 작성자 maru, 조회 5회, 좋아요 2개)
     private Post existingPost() {
-        return new Post(1L, "제목", "내용", "maru", LocalDateTime.of(2026, 7, 14, 12, 0));
+        return new Post(1L, "제목", "내용", "maru", 5, 2, LocalDateTime.of(2026, 7, 14, 12, 0));
     }
 
     // ---------------- 조회 ----------------
@@ -57,20 +58,72 @@ class PostServiceTest {
     void getPost_missing_throws404() {
         when(postRepository.findById(99L)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> postService.getPost(99L))
+        assertThatThrownBy(() -> postService.getPost(99L, null))
                 .isInstanceOf(ResponseStatusException.class)
                 .extracting("statusCode").isEqualTo(HttpStatus.NOT_FOUND);
     }
 
     @Test
-    @DisplayName("있는 글을 조회하면 내용이 그대로 담겨 나옴")
-    void getPost_found_returnsResult() {
+    @DisplayName("있는 글을 조회하면 내용이 담겨 나오고, 조회수가 +1 됨")
+    void getPost_found_returnsResultAndIncrementsView() {
         when(postRepository.findById(1L)).thenReturn(Optional.of(existingPost()));
 
-        PostResult result = postService.getPost(1L);
+        PostResult result = postService.getPost(1L, null);   // 비로그인 조회
 
         assertThat(result.getTitle()).isEqualTo("제목");
         assertThat(result.getAuthor()).isEqualTo("maru");
+        assertThat(result.isLikedByMe()).isFalse();          // 비로그인이니 항상 false
+        verify(postRepository).incrementViewCount(1L);       // 조회수 증가가 실행됐는지
+    }
+
+    @Test
+    @DisplayName("좋아요를 누른 사람이 조회하면 likedByMe가 true")
+    void getPost_likedViewer_setsLikedByMe() {
+        when(postRepository.findById(1L)).thenReturn(Optional.of(existingPost()));
+        when(postRepository.hasLiked(1L, "maru")).thenReturn(true);
+
+        PostResult result = postService.getPost(1L, "maru");
+
+        assertThat(result.isLikedByMe()).isTrue();
+    }
+
+    // ---------------- 좋아요 토글 ----------------
+
+    @Test
+    @DisplayName("안 눌렀던 상태에서 토글하면 좋아요가 추가됨")
+    void toggleLike_notLikedYet_addsLike() {
+        when(postRepository.findById(1L)).thenReturn(Optional.of(existingPost()));
+        when(postRepository.hasLiked(1L, "maru")).thenReturn(false);
+        when(postRepository.countLikes(1L)).thenReturn(3L);
+
+        LikeResult result = postService.toggleLike(1L, "maru");
+
+        verify(postRepository).addLike(1L, "maru");
+        assertThat(result.isLiked()).isTrue();
+        assertThat(result.getLikeCount()).isEqualTo(3);
+    }
+
+    @Test
+    @DisplayName("이미 눌렀던 상태에서 토글하면 좋아요가 취소됨")
+    void toggleLike_alreadyLiked_removesLike() {
+        when(postRepository.findById(1L)).thenReturn(Optional.of(existingPost()));
+        when(postRepository.hasLiked(1L, "maru")).thenReturn(true);
+        when(postRepository.countLikes(1L)).thenReturn(2L);
+
+        LikeResult result = postService.toggleLike(1L, "maru");
+
+        verify(postRepository).removeLike(1L, "maru");
+        assertThat(result.isLiked()).isFalse();
+    }
+
+    @Test
+    @DisplayName("없는 글에 좋아요를 누르면 404")
+    void toggleLike_missingPost_throws404() {
+        when(postRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> postService.toggleLike(99L, "maru"))
+                .isInstanceOf(ResponseStatusException.class)
+                .extracting("statusCode").isEqualTo(HttpStatus.NOT_FOUND);
     }
 
     // ---------------- 목록 (페이지네이션 + 검색) ----------------

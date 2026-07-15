@@ -1,6 +1,7 @@
 package com.example.coderfolio.contexts.board.api;
 
 import com.example.coderfolio.contexts.board.application.PostService;
+import com.example.coderfolio.contexts.board.application.dto.LikeResult;
 import com.example.coderfolio.contexts.board.application.dto.PostPageResult;
 import com.example.coderfolio.contexts.board.application.dto.PostResult;
 import com.example.coderfolio.contexts.board.application.dto.UpdatePostCommand;
@@ -56,15 +57,37 @@ class PostApiControllerTest {
     @DisplayName("글 목록은 로그인 없이 조회 가능 → 200 + 페이지 정보와 함께 옴")
     void list_withoutLogin_returns200() throws Exception {
         List<PostResult> posts = List.of(
-                new PostResult(1L, "제목", "내용", "maru", LocalDateTime.of(2026, 7, 14, 12, 0)));
+                new PostResult(1L, "제목", "내용", "maru", 5, 2, false, LocalDateTime.of(2026, 7, 14, 12, 0)));
         when(postService.getPosts(1, 10, null)).thenReturn(new PostPageResult(posts, 1, 10, 1L, 1));
 
         mockMvc.perform(get("/api/posts"))   // page/size 파라미터를 안 줘도 기본값(1, 10)으로 동작
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.posts[0].id").value(1))
                 .andExpect(jsonPath("$.posts[0].title").value("제목"))
+                .andExpect(jsonPath("$.posts[0].viewCount").value(5))
+                .andExpect(jsonPath("$.posts[0].likeCount").value(2))
                 .andExpect(jsonPath("$.page").value(1))
                 .andExpect(jsonPath("$.totalPages").value(1));
+    }
+
+    // ---------------- 좋아요 ----------------
+
+    @Test
+    @DisplayName("로그인 없이 좋아요 → 401")
+    void like_withoutLogin_returns401() throws Exception {
+        mockMvc.perform(post("/api/posts/1/like"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("로그인 후 좋아요 토글 → 200 + 새 상태(liked/likeCount) 응답")
+    void like_withLogin_returnsNewState() throws Exception {
+        when(postService.toggleLike(1L, "maru")).thenReturn(new LikeResult(true, 3L));
+
+        mockMvc.perform(post("/api/posts/1/like").session(loginSession()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.liked").value(true))
+                .andExpect(jsonPath("$.likeCount").value(3));
     }
 
     @Test

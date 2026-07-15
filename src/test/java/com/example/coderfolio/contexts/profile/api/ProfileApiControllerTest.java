@@ -1,7 +1,9 @@
 package com.example.coderfolio.contexts.profile.api;
 
 import com.example.coderfolio.contexts.profile.application.ProfileService;
+import com.example.coderfolio.contexts.profile.application.dto.DeveloperPageResult;
 import com.example.coderfolio.contexts.profile.application.dto.ProfileResult;
+import com.example.coderfolio.contexts.profile.infra.DeveloperSummary;
 import com.example.coderfolio.contexts.profile.infra.Education;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -41,6 +43,32 @@ class ProfileApiControllerTest {
         MockHttpSession session = new MockHttpSession();
         session.setAttribute("loginUser", "maru");
         return session;
+    }
+
+    // ---------------- 개발자 둘러보기 ----------------
+
+    @Test
+    @DisplayName("개발자 목록은 로그인 없이 조회 가능 → 200 + 페이지 정보")
+    void listDevelopers_withoutLogin_returns200() throws Exception {
+        when(profileService.getDevelopers(1, 12, null)).thenReturn(new DeveloperPageResult(
+                List.of(new DeveloperSummary("maru", "김철수", "안녕하세요", 2, 3)), 1, 12, 1L, 1));
+
+        mockMvc.perform(get("/api/profiles"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.developers[0].username").value("maru"))
+                .andExpect(jsonPath("$.developers[0].careerCount").value(2))
+                .andExpect(jsonPath("$.totalPages").value(1));
+    }
+
+    @Test
+    @DisplayName("page/size/keyword 파라미터가 Service로 그대로 전달됨")
+    void listDevelopers_withQueryParams_passesThemToService() throws Exception {
+        when(profileService.getDevelopers(2, 6, "자바")).thenReturn(
+                new DeveloperPageResult(List.of(), 2, 6, 0L, 0));
+
+        mockMvc.perform(get("/api/profiles?page=2&size=6&keyword=자바"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.page").value(2));
     }
 
     // ---------------- 공개 조회 ----------------

@@ -4,6 +4,7 @@ import com.example.coderfolio.contexts.board.api.dto.PostPageResponse;
 import com.example.coderfolio.contexts.board.api.dto.PostViewResponse;
 import com.example.coderfolio.contexts.board.api.dto.PostWriteApiRequest;
 import com.example.coderfolio.contexts.board.application.PostService;
+import com.example.coderfolio.contexts.board.application.dto.LikeResult;
 import com.example.coderfolio.contexts.board.application.dto.UpdatePostCommand;
 import com.example.coderfolio.contexts.board.application.dto.WritePostCommand;
 import jakarta.servlet.http.HttpSession;
@@ -39,10 +40,19 @@ public class PostApiController {
         return PostPageResponse.from(postService.getPosts(page, size, keyword));
     }
 
-    // GET /api/posts/{id}  -  글 하나. 없으면 Service가 404를 던짐
+    // GET /api/posts/{id}  -  글 하나. 없으면 Service가 404를 던짐.
+    // 조회할 때마다 조회수 +1. 로그인한 사람이면 "내가 좋아요 눌렀는지"(likedByMe)도 같이 내려줌
     @GetMapping("/{id}")
-    public PostViewResponse detail(@PathVariable Long id) {
-        return PostViewResponse.from(postService.getPost(id));
+    public PostViewResponse detail(@PathVariable Long id, HttpSession session) {
+        String viewer = (String) session.getAttribute("loginUser");   // 비로그인이면 null (조회는 누구나 가능)
+        return PostViewResponse.from(postService.getPost(id, viewer));
+    }
+
+    // POST /api/posts/{id}/like  -  좋아요 토글 (로그인 필요). 응답: { "liked": true, "likeCount": 3 }
+    @PostMapping("/{id}/like")
+    public LikeResult toggleLike(@PathVariable Long id, HttpSession session) {
+        String loginUser = requireLogin(session);
+        return postService.toggleLike(id, loginUser);
     }
 
     // POST /api/posts  -  글 등록 (로그인 필요). body: { "title": "...", "content": "..." }

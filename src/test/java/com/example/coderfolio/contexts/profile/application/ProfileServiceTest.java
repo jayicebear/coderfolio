@@ -1,8 +1,10 @@
 package com.example.coderfolio.contexts.profile.application;
 
 import com.example.coderfolio.contexts.profile.application.dto.AddEducationCommand;
+import com.example.coderfolio.contexts.profile.application.dto.DeveloperPageResult;
 import com.example.coderfolio.contexts.profile.application.dto.ProfileResult;
 import com.example.coderfolio.contexts.profile.application.dto.UpdateEducationCommand;
+import com.example.coderfolio.contexts.profile.infra.DeveloperSummary;
 import com.example.coderfolio.contexts.profile.infra.Education;
 import com.example.coderfolio.contexts.profile.infra.ProfileRepository;
 import org.junit.jupiter.api.DisplayName;
@@ -20,6 +22,8 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -37,6 +41,35 @@ class ProfileServiceTest {
 
     @InjectMocks
     ProfileService profileService;
+
+    // ---------------- 개발자 둘러보기 ----------------
+
+    @Test
+    @DisplayName("2페이지, size=12 요청이면 offset 12로 조회")
+    void getDevelopers_secondPage_computesOffset() {
+        when(profileRepository.countDevelopers(isNull())).thenReturn(25L);
+        when(profileRepository.findDevelopers(isNull(), eq(12), eq(12)))
+                .thenReturn(List.of(new DeveloperSummary("maru", "김철수", "안녕하세요", 2, 3)));
+
+        DeveloperPageResult result = profileService.getDevelopers(2, 12, null);
+
+        verify(profileRepository).findDevelopers(isNull(), eq(12), eq(12));
+        assertThat(result.getPage()).isEqualTo(2);
+        assertThat(result.getTotalPages()).isEqualTo(3);   // 25명을 12명씩 → 3페이지
+        assertThat(result.getDevelopers().get(0).getCareerCount()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("검색어를 넘기면 목록/카운트 조회에 그대로 전달됨")
+    void getDevelopers_withKeyword_passesToRepository() {
+        when(profileRepository.countDevelopers(eq("자바"))).thenReturn(1L);
+        when(profileRepository.findDevelopers(eq("자바"), eq(12), eq(0))).thenReturn(List.of());
+
+        profileService.getDevelopers(1, 12, "자바");
+
+        verify(profileRepository).findDevelopers(eq("자바"), eq(12), eq(0));
+        verify(profileRepository).countDevelopers(eq("자바"));
+    }
 
     // ---------------- 조회 ----------------
 

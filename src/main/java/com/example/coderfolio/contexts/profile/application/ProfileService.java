@@ -3,6 +3,7 @@ package com.example.coderfolio.contexts.profile.application;
 import com.example.coderfolio.contexts.profile.application.dto.AddCareerCommand;
 import com.example.coderfolio.contexts.profile.application.dto.AddEducationCommand;
 import com.example.coderfolio.contexts.profile.application.dto.AddProjectCommand;
+import com.example.coderfolio.contexts.profile.application.dto.DeveloperPageResult;
 import com.example.coderfolio.contexts.profile.application.dto.ProfileResult;
 import com.example.coderfolio.contexts.profile.application.dto.SaveProfileCommand;
 import com.example.coderfolio.contexts.profile.application.dto.UpdateCareerCommand;
@@ -30,6 +31,22 @@ public class ProfileService {
     @Autowired
     public ProfileService(ProfileRepository profileRepository) {
         this.profileRepository = profileRepository;
+    }
+
+    private static final int MAX_PAGE_SIZE = 60;
+
+    // 개발자 둘러보기 목록 (최신 가입순, 검색 + 페이지네이션). PostService.getPosts와 같은 패턴
+    public DeveloperPageResult getDevelopers(int page, int size, String keyword) {
+        int safePage = Math.max(page, 1);
+        int safeSize = (size < 1 || size > MAX_PAGE_SIZE) ? 12 : size;
+        int offset = (safePage - 1) * safeSize;
+
+        long totalCount = profileRepository.countDevelopers(keyword);
+        int totalPages = (int) Math.ceil((double) totalCount / safeSize);
+
+        return new DeveloperPageResult(
+                profileRepository.findDevelopers(keyword, safeSize, offset),
+                safePage, safeSize, totalCount, totalPages);
     }
 
     // 한 사람의 이력서 전체(기본정보 + 학력/경력/프로젝트)를 한 번에 조회

@@ -8,6 +8,7 @@ import com.example.coderfolio.contexts.profile.application.ProfileService;
 import com.example.coderfolio.contexts.profile.application.dto.AddCareerCommand;
 import com.example.coderfolio.contexts.profile.application.dto.AddEducationCommand;
 import com.example.coderfolio.contexts.profile.application.dto.AddProjectCommand;
+import com.example.coderfolio.contexts.profile.application.dto.DeveloperPageResult;
 import com.example.coderfolio.contexts.profile.application.dto.ProfileResult;
 import com.example.coderfolio.contexts.profile.application.dto.SaveProfileCommand;
 import com.example.coderfolio.contexts.profile.application.dto.UpdateCareerCommand;
@@ -37,6 +38,16 @@ public class ProfileApiController {
     }
 
     // ================= 공개 조회 =================
+
+    // GET /api/profiles?page=1&size=12&keyword=검색어  -  개발자 둘러보기 목록 (누구나)
+    // 아이디/이름/자기소개에서 검색. 최신 가입순.
+    @GetMapping
+    public DeveloperPageResult list(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "12") int size,
+            @RequestParam(required = false) String keyword) {
+        return profileService.getDevelopers(page, size, keyword);
+    }
 
     // GET /api/profiles/{username}  -  이력서 전체(기본정보+학력+경력+프로젝트)를 JSON 하나로
     @GetMapping("/{username}")

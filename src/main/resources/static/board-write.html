@@ -9,16 +9,8 @@
 </head>
 <body>
 
-<!-- 상단 네비게이션 바 -->
-<header class="topbar">
-    <div class="topbar-inner">
-        <a class="brand" href="/">coder<span class="dot">folio</span></a>
-        <nav>
-            <a href="/">홈</a>
-            <a class="active" href="/board.html">게시판</a>
-        </nav>
-    </div>
-</header>
+<!-- 상단 네비게이션 바: 실제 내용은 app.js의 renderTopbar()가 채워 넣음 -->
+<header class="topbar" id="topbar" data-active="board"></header>
 
 <div class="page">
     <div class="card wide">

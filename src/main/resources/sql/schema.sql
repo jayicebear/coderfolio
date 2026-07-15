@@ -18,8 +18,15 @@ CREATE TABLE IF NOT EXISTS posts (
   title      VARCHAR(200) NOT NULL,
   content    TEXT         NOT NULL,
   author     VARCHAR(50)  NOT NULL,
+  view_count BIGINT       NOT NULL DEFAULT 0,
   created_at DATETIME(6)
 );
+
+-- 이미 posts 테이블이 있는 기존 DB에 view_count 컬럼을 추가하기 위한 문장.
+-- MySQL은 "ADD COLUMN IF NOT EXISTS"를 지원 안 해서, 두 번째 실행부터는 "이미 있는 컬럼" 에러가 남.
+-- 그래서 application.properties의 spring.sql.init.continue-on-error=true 로 그 에러를 무시하고 넘어가게 함.
+-- (스키마 변경이 잦아지면 이 방식 대신 Flyway 같은 마이그레이션 도구를 쓰는 게 정석)
+ALTER TABLE posts ADD COLUMN view_count BIGINT NOT NULL DEFAULT 0;
 
 -- 댓글: post_id로 어느 글에 달린 댓글인지 표시 (posts.id와 값으로만 연결, 진짜 FK 제약은 안 걸음 - author를 users.username과 연결한 것과 같은 방식)
 CREATE TABLE IF NOT EXISTS comments (
@@ -28,6 +35,16 @@ CREATE TABLE IF NOT EXISTS comments (
   author     VARCHAR(50)  NOT NULL,
   content    TEXT         NOT NULL,
   created_at DATETIME(6)
+);
+
+-- 좋아요: 한 사람(username)이 한 글(post_id)에 한 번만 누를 수 있게 UNIQUE 제약을 걸음.
+-- 좋아요 수는 별도 컬럼 없이 이 테이블의 줄 수를 세서(COUNT) 계산함.
+CREATE TABLE IF NOT EXISTS post_likes (
+  id         BIGINT AUTO_INCREMENT PRIMARY KEY,
+  post_id    BIGINT      NOT NULL,
+  username   VARCHAR(50) NOT NULL,
+  created_at DATETIME(6),
+  UNIQUE KEY uk_post_user (post_id, username)
 );
 
 -- ============================================================

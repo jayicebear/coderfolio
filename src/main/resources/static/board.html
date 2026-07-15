@@ -9,16 +9,8 @@
 </head>
 <body>
 
-<!-- 상단 네비게이션 바 -->
-<header class="topbar">
-    <div class="topbar-inner">
-        <a class="brand" href="/">coder<span class="dot">folio</span></a>
-        <nav>
-            <a href="/">홈</a>
-            <a class="active" href="/board.html">게시판</a>
-        </nav>
-    </div>
-</header>
+<!-- 상단 네비게이션 바: 실제 내용은 app.js의 renderTopbar()가 채워 넣음 -->
+<header class="topbar" id="topbar" data-active="board"></header>
 
 <div class="page">
     <div class="toolbar">
@@ -77,12 +69,14 @@ function renderList(posts) {
     // 배열을 돌면서 행(tr)을 만들어 테이블 완성 (예전 th:each가 하던 일)
     box.innerHTML = `
         <table class="board">
-            <thead><tr><th>제목</th><th>작성자</th><th>작성일</th></tr></thead>
+            <thead><tr><th>제목</th><th>작성자</th><th>조회</th><th>좋아요</th><th>작성일</th></tr></thead>
             <tbody>
                 ${posts.map(p => `
                     <tr>
                         <td><a href="/board-detail.html?id=${p.id}">${esc(p.title)}</a></td>
                         <td class="col-meta">${esc(p.author)}</td>
+                        <td class="col-meta">${p.viewCount}</td>
+                        <td class="col-meta">${p.likeCount > 0 ? '♥ ' + p.likeCount : '-'}</td>
                         <td class="col-meta">${fmtDate(p.createdAt)}</td>
                     </tr>`).join('')}
             </tbody>
@@ -117,6 +111,13 @@ document.getElementById('searchForm').addEventListener('submit', (e) => {
 });
 
 load();
+
+// 브라우저 "뒤로가기"로 돌아온 경우, 페이지를 새로 안 불러오고
+// bfcache(메모리에 저장해둔 예전 화면)를 그대로 복원하는 경우가 있음.
+// event.persisted가 true면 그 상황이라는 뜻 → 목록을 다시 불러와서 최신 조회수/좋아요로 갱신함.
+window.addEventListener('pageshow', (e) => {
+    if (e.persisted) load();
+});
 </script>
 </body>
 </html>

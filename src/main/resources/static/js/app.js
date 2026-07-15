@@ -78,3 +78,39 @@ function fmtDate(iso) {
 function ifValue(v, html) {
     return (v != null && String(v).trim() !== '') ? html : '';
 }
+
+// ---- 상단 네비게이션 바 ----
+// 메뉴 목록을 여기 한 곳에서만 관리함. 예전엔 각 html 파일마다 <nav>를 복사해서 써서
+// 메뉴를 하나 추가할 때마다 파일 하나씩 빠뜨리는 문제가 있었음 — 이제 여기만 고치면 전체 반영됨.
+const NAV_LINKS = [
+    { key: 'home',        href: '/',                   label: '홈' },
+    { key: 'developers',  href: '/developers.html',    label: '개발자' },
+    { key: 'board',       href: '/board.html',          label: '게시판' },
+    { key: 'profile',     href: '/profile-edit.html',   label: '내 이력서' },
+    { key: 'account',     href: '/account.html',        label: '계정 설정' },
+];
+
+// 각 페이지는 <header id="topbar" data-active="board"></header> 만 남겨두고,
+// 이 함수가 페이지 로드 시 그 안을 채워 넣음.
+async function renderTopbar() {
+    const header = document.getElementById('topbar');
+    if (!header) return;   // login.html/signup.html처럼 상단바가 없는 페이지는 그냥 넘어감
+
+    const activeKey = header.dataset.active || '';
+    const me = await currentUser();   // 로그인 여부에 따라 로그인/로그아웃 링크를 다르게 보여줌
+
+    const navHtml = NAV_LINKS
+        .map(item => `<a class="${item.key === activeKey ? 'active' : ''}" href="${item.href}">${item.label}</a>`)
+        .join('');
+    const authHtml = me
+        ? `<a href="#" onclick="logout(); return false;">로그아웃</a>`
+        : `<a href="/login.html">로그인</a>`;
+
+    header.innerHTML = `
+        <div class="topbar-inner">
+            <a class="brand" href="/">coder<span class="dot">folio</span></a>
+            <nav>${navHtml}${authHtml}</nav>
+        </div>`;
+}
+
+document.addEventListener('DOMContentLoaded', renderTopbar);

@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>개발자 둘러보기</title>
+    <link rel="stylesheet" href="/css/app.css">
+    <script src="/js/app.js"></script>
+</head>
+<body>
+
+<!-- 상단 네비게이션 바: 실제 내용은 app.js의 renderTopbar()가 채워 넣음 -->
+<header class="topbar" id="topbar" data-active="developers"></header>
+
+<div class="page">
+    <div class="page-head">
+        <h2>개발자 둘러보기</h2>
+        <p class="desc">coderfolio에 포트폴리오를 등록한 개발자들이에요.</p>
+    </div>
+
+    <!-- 검색창: 아이디/이름/자기소개에서 검색 -->
+    <form class="search-bar" id="searchForm">
+        <input type="text" id="keywordInput" placeholder="아이디/이름/자기소개 검색">
+        <button type="submit" class="btn-ghost">검색</button>
+    </form>
+
+    <!-- JS가 카드 목록을 그려 넣는 자리 -->
+    <div id="list"></div>
+    <div id="pagination"></div>
+</div>
+
+<script>
+// board.html과 같은 방식: 주소창의 ?keyword=...&page=... 를 기억해서 새로고침에도 유지
+const params = new URLSearchParams(location.search);
+let currentPage = parseInt(params.get('page') || '1', 10);
+let currentKeyword = params.get('keyword') || '';
+
+async function load() {
+    document.getElementById('keywordInput').value = currentKeyword;
+
+    const query = new URLSearchParams();
+    query.set('page', currentPage);
+    if (currentKeyword) query.set('keyword', currentKeyword);
+    history.replaceState(null, '', '/developers.html?' + query.toString());
+
+    const url = '/api/profiles?page=' + currentPage + '&size=12'
+            + (currentKeyword ? '&keyword=' + encodeURIComponent(currentKeyword) : '');
+    const result = await api(url);   // { developers: [...], page, size, totalCount, totalPages }
+
+    renderList(result.developers);
+    renderPagination(result.page, result.totalPages);
+}
+
+function renderList(developers) {
+    const box = document.getElementById('list');
+
+    if (developers.length === 0) {
+        box.innerHTML = '<p class="empty">'
+                + (currentKeyword ? '검색 결과가 없어요.' : '아직 가입한 개발자가 없어요.')
+                + '</p>';
+        return;
+    }
+
+    // 카드 하나 = 개발자 한 명. 클릭하면 그 사람 포트폴리오로 이동
+    box.innerHTML = `
+        <div class="dev-grid">
+            ${developers.map(d => {
+                const displayName = (d.name && d.name.trim()) ? d.name : d.username;
+                return `
+                <a class="dev-card" href="/profile.html?user=${encodeURIComponent(d.username)}">
+                    <div class="dev-card-top">
+                        <div class="avatar avatar-sm">${esc(displayName[0])}</div>
+                        <div>
+                            <p class="dev-name">${esc(displayName)}</p>
+                            <p class="dev-handle">@${esc(d.username)}</p>
+                        </div>
+                    </div>
+                    ${ifValue(d.intro, `<p class="dev-intro">${esc(d.intro)}</p>`)}
+                    <div class="dev-stats">
+                        <span>경력 ${d.careerCount}</span>
+                        <span>프로젝트 ${d.projectCount}</span>
+                    </div>
+                </a>`;
+            }).join('')}
+        </div>`;
+}
+
+function renderPagination(page, totalPages) {
+    const box = document.getElementById('pagination');
+    if (totalPages <= 1) {
+        box.innerHTML = '';
+        return;
+    }
+    box.innerHTML = `
+        <div class="pagination">
+            <button class="btn-ghost" ${page <= 1 ? 'disabled' : ''} onclick="goPage(${page - 1})">이전</button>
+            <span class="page-info">${page} / ${totalPages}</span>
+            <button class="btn-ghost" ${page >= totalPages ? 'disabled' : ''} onclick="goPage(${page + 1})">다음</button>
+        </div>`;
+}
+
+function goPage(page) {
+    currentPage = page;
+    load();
+}
+
+document.getElementById('searchForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    currentKeyword = document.getElementById('keywordInput').value.trim();
+    currentPage = 1;
+    load();
+});
+
+load();
+
+// board.html과 같은 이유: 뒤로가기로 bfcache에서 복원된 경우 목록을 다시 불러와 최신화함
+window.addEventListener('pageshow', (e) => {
+    if (e.persisted) load();
+});
+</script>
+</body>
+</html>

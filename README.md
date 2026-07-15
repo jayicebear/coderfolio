@@ -15,11 +15,13 @@ Spring Boot 기반 REST API 서버 + 순수 HTML/JS 프론트엔드로 구성되
 - 글 목록 / 상세 조회 (비로그인도 가능), 페이지네이션 + 제목·내용 검색
 - 글쓰기 / 수정 / 삭제 (로그인 필요, 본인 글만 수정·삭제 가능)
 - 댓글 작성 / 삭제 (로그인 필요, 본인 댓글만 삭제 가능)
+- 조회수 (상세 조회 시 자동 증가) + 좋아요 토글 (한 사람당 글 하나에 한 번)
 
 ### 포트폴리오 (이력서)
 - 기본 정보(이름, 이메일, 자기소개) 등록·수정
 - 학력 / 경력 / 프로젝트를 각각 여러 건 추가·수정·삭제
 - `/profile.html?user=아이디` 주소로 누구나 조회 가능한 공개 포트폴리오
+- 개발자 둘러보기: 가입한 개발자 카드 목록 (검색 + 페이지네이션)
 
 ## 기술 스택
 
@@ -95,6 +97,8 @@ DB_PASSWORD=본인의_MySQL_비밀번호
 | POST | `/api/posts` | 글쓰기 | 필요 |
 | PUT | `/api/posts/{id}` | 글 수정 (본인만) | 필요 |
 | DELETE | `/api/posts/{id}` | 글 삭제 (본인만) | 필요 |
+| POST | `/api/posts/{id}/like` | 좋아요 토글 | 필요 |
+| GET | `/api/profiles` | 개발자 둘러보기 목록 (검색/페이지네이션) | - |
 | GET | `/api/profiles/{username}` | 포트폴리오 조회 | - |
 | PUT | `/api/profiles/me` | 기본 정보 저장 | 필요 |
 | POST/PUT/DELETE | `/api/profiles/me/{educations\|careers\|projects}` | 학력/경력/프로젝트 추가·수정·삭제 | 필요 |

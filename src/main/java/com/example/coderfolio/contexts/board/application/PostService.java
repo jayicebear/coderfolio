@@ -1,5 +1,6 @@
 package com.example.coderfolio.contexts.board.application;
 
+import com.example.coderfolio.contexts.board.application.dto.LikeResult;
 import com.example.coderfolio.contexts.board.application.dto.PostPageResult;
 import com.example.coderfolio.contexts.board.application.dto.PostResult;
 import com.example.coderfolio.contexts.board.application.dto.UpdatePostCommand;
@@ -45,11 +46,36 @@ public class PostService {
         return new PostPageResult(posts, safePage, safeSize, totalCount, totalPages);
     }
 
-    // 글 하나 조회. 없으면 404 에러
-    public PostResult getPost(Long id) {
-        Post post = postRepository.findById(id)
+    // 글 하나 조회 (상세 보기). 없으면 404 에러.
+    // viewer: 지금 보고 있는 사람의 아이디 (비로그인이면 null) — 좋아요 여부(likedByMe) 판단에 씀.
+    // 조회할 때마다 조회수를 +1 함 (본인 글을 봐도, 새로고침해도 올라가는 단순한 방식 —
+    // 실서비스는 IP/세션 기준으로 중복을 걸러내지만 여기선 단순화).
+    public PostResult getPost(Long id, String viewer) {
+        Post found = postRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "게시글을 찾을 수 없어요."));
-        return PostResult.from(post);
+
+        postRepository.incrementViewCount(id);
+        boolean likedByMe = viewer != null && postRepository.hasLiked(id, viewer);
+
+        // 방금 +1한 조회수를 응답에도 반영하려고 다시 조회 (found는 +1 되기 전 값이라서)
+        Post post = postRepository.findById(id).orElse(found);
+        return PostResult.from(post, likedByMe);
+    }
+
+    // 좋아요 토글: 안 눌렀으면 누르고, 이미 눌렀으면 취소. 토글 후의 새 상태를 돌려줌
+    public LikeResult toggleLike(Long postId, String username) {
+        postRepository.findById(postId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "게시글을 찾을 수 없어요."));
+
+        boolean nowLiked;
+        if (postRepository.hasLiked(postId, username)) {
+            postRepository.removeLike(postId, username);
+            nowLiked = false;
+        } else {
+            postRepository.addLike(postId, username);
+            nowLiked = true;
+        }
+        return new LikeResult(nowLiked, postRepository.countLikes(postId));
     }
 
     // 글쓰기 규칙: 제목/내용 빈값 금지

@@ -9,16 +9,8 @@
 </head>
 <body>
 
-<!-- 상단 네비게이션 바 -->
-<header class="topbar">
-    <div class="topbar-inner">
-        <a class="brand" href="/">coder<span class="dot">folio</span></a>
-        <nav>
-            <a href="/">홈</a>
-            <a class="active" href="/board.html">게시판</a>
-        </nav>
-    </div>
-</header>
+<!-- 상단 네비게이션 바: 실제 내용은 app.js의 renderTopbar()가 채워 넣음 -->
+<header class="topbar" id="topbar" data-active="board"></header>
 
 <div class="page" id="post">
     <!-- JS가 글 내용을 그려 넣는 자리 -->
@@ -37,6 +29,25 @@ async function deletePost() {
     } catch (err) {
         alert(err.message);
     }
+}
+
+// ---------------- 좋아요 ----------------
+
+// 버튼 클릭 → 토글 API 호출 → 응답의 새 상태로 버튼 모양/숫자를 즉시 갱신
+async function toggleLike() {
+    try {
+        const result = await api('/api/posts/' + id + '/like', { method: 'POST' });
+        renderLikeButton(result.liked, result.likeCount);
+    } catch (err) {
+        if (err.status === 401) { location.href = '/login.html'; return; }
+        alert(err.message);
+    }
+}
+
+function renderLikeButton(liked, likeCount) {
+    const btn = document.getElementById('likeBtn');
+    btn.textContent = (liked ? '♥' : '♡') + ' 좋아요 ' + likeCount;
+    btn.classList.toggle('liked', liked);
 }
 
 // ---------------- 댓글 ----------------
@@ -103,7 +114,7 @@ document.addEventListener('submit', async (e) => {
             <div class="toolbar">
                 <div>
                     <h2 class="post-title">${esc(post.title)}</h2>
-                    <p class="post-meta" style="margin-bottom:0;">${esc(post.author)} · ${fmtDate(post.createdAt)}</p>
+                    <p class="post-meta" style="margin-bottom:0;">${esc(post.author)} · ${fmtDate(post.createdAt)} · 조회 ${post.viewCount}</p>
                 </div>
                 ${mine ? `
                 <div style="display:flex; gap:8px; flex:none;">
@@ -112,6 +123,10 @@ document.addEventListener('submit', async (e) => {
                 </div>` : ''}
             </div>
             <div class="post-content">${esc(post.content)}</div>
+
+            <div class="like-bar">
+                <button class="btn-like" id="likeBtn" onclick="toggleLike()"></button>
+            </div>
 
             <div class="comment-section">
                 <h3>댓글</h3>
@@ -126,6 +141,7 @@ document.addEventListener('submit', async (e) => {
 
             <a class="back" href="/board.html">← 목록으로</a>`;
 
+        renderLikeButton(post.likedByMe, post.likeCount);   // 처음 화면에 좋아요 상태 표시
         await loadComments();
     } catch (err) {
         box.innerHTML = `
