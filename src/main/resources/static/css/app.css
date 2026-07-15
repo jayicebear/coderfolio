@@ -226,6 +226,25 @@ button.full, .btn.full { width: 100%; display: block; }
     margin-bottom: 20px;
 }
 
+/* 게시판 검색창 */
+.search-bar {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+.search-bar input { flex: 1; margin-bottom: 0; }
+
+/* 페이지네이션 (이전/다음 버튼) */
+.pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 16px;
+    margin-top: 20px;
+}
+.pagination button:disabled { opacity: 0.4; cursor: default; }
+.pagination .page-info { color: var(--muted); font-size: 14px; font-weight: 600; }
+
 .board {
     width: 100%;
     border-collapse: collapse;
@@ -437,6 +456,35 @@ button.full, .btn.full { width: 100%; display: block; }
     padding: 28px;
     box-shadow: var(--shadow);
 }
+
+/* ============================================================
+   댓글
+   ============================================================ */
+.comment-section {
+    margin-top: 36px;
+    padding-top: 28px;
+    border-top: 1px solid var(--border);
+}
+.comment-section > h3 {
+    font-size: 13px;
+    font-weight: 800;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    margin: 0 0 14px;
+}
+.comment-item {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-sm);
+    padding: 14px 18px;
+    margin-bottom: 10px;
+}
+.comment-top { display: flex; align-items: center; gap: 10px; }
+.comment-author { font-weight: 700; font-size: 14px; }
+.comment-date { color: var(--muted); font-size: 12px; flex: 1; }
+.comment-content { margin: 8px 0 0; line-height: 1.6; white-space: pre-wrap; font-size: 14.5px; color: var(--text-2); }
 
 /* ============================================================
    반응형 (좁은 화면)

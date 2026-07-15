@@ -1,6 +1,7 @@
 package com.example.coderfolio.contexts.board.api;
 
 import com.example.coderfolio.contexts.board.application.PostService;
+import com.example.coderfolio.contexts.board.application.dto.PostPageResult;
 import com.example.coderfolio.contexts.board.application.dto.PostResult;
 import com.example.coderfolio.contexts.board.application.dto.UpdatePostCommand;
 import org.junit.jupiter.api.DisplayName;
@@ -52,16 +53,28 @@ class PostApiControllerTest {
     // ---------------- 조회 (로그인 불필요) ----------------
 
     @Test
-    @DisplayName("글 목록은 로그인 없이 조회 가능 → 200 + JSON 배열")
+    @DisplayName("글 목록은 로그인 없이 조회 가능 → 200 + 페이지 정보와 함께 옴")
     void list_withoutLogin_returns200() throws Exception {
-        when(postService.getAllPosts()).thenReturn(List.of(
-                new PostResult(1L, "제목", "내용", "maru", LocalDateTime.of(2026, 7, 14, 12, 0))));
+        List<PostResult> posts = List.of(
+                new PostResult(1L, "제목", "내용", "maru", LocalDateTime.of(2026, 7, 14, 12, 0)));
+        when(postService.getPosts(1, 10, null)).thenReturn(new PostPageResult(posts, 1, 10, 1L, 1));
 
-        mockMvc.perform(get("/api/posts"))
+        mockMvc.perform(get("/api/posts"))   // page/size 파라미터를 안 줘도 기본값(1, 10)으로 동작
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].id").value(1))
-                .andExpect(jsonPath("$[0].title").value("제목"))
-                .andExpect(jsonPath("$[0].author").value("maru"));
+                .andExpect(jsonPath("$.posts[0].id").value(1))
+                .andExpect(jsonPath("$.posts[0].title").value("제목"))
+                .andExpect(jsonPath("$.page").value(1))
+                .andExpect(jsonPath("$.totalPages").value(1));
+    }
+
+    @Test
+    @DisplayName("page/size/keyword 파라미터가 Service로 그대로 전달됨")
+    void list_withQueryParams_passesThemToService() throws Exception {
+        when(postService.getPosts(2, 5, "자바")).thenReturn(new PostPageResult(List.of(), 2, 5, 0L, 0));
+
+        mockMvc.perform(get("/api/posts?page=2&size=5&keyword=자바"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.page").value(2));
     }
 
     // ---------------- 글쓰기 ----------------

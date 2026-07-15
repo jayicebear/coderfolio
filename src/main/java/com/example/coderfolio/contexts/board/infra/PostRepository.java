@@ -34,9 +34,32 @@ public class PostRepository {
                 Timestamp.valueOf(post.getCreatedAt()));
     }
 
-    public List<Post> findAllByOrderByCreatedAtDesc() {
-        String sql = "SELECT id, title, content, author, created_at FROM posts ORDER BY created_at DESC";
-        return jdbcTemplate.query(sql, POST_MAPPER);
+    // 페이지네이션 + 검색: keyword가 있으면 제목/내용에 그 단어가 포함된 글만, limit/offset으로 한 페이지만 잘라서 조회
+    // (where 문자열은 우리가 만든 고정 문구일 뿐이고, 검색어 자체는 항상 ? 자리표시자로 넘겨서 SQL 인젝션과 무관함)
+    public List<Post> findPage(String keyword, int limit, int offset) {
+        boolean hasKeyword = keyword != null && !keyword.isBlank();
+        String where = hasKeyword ? "WHERE title LIKE ? OR content LIKE ? " : "";
+        String sql = "SELECT id, title, content, author, created_at FROM posts "
+                + where + "ORDER BY created_at DESC LIMIT ? OFFSET ?";
+
+        if (hasKeyword) {
+            String pattern = "%" + keyword + "%";
+            return jdbcTemplate.query(sql, POST_MAPPER, pattern, pattern, limit, offset);
+        }
+        return jdbcTemplate.query(sql, POST_MAPPER, limit, offset);
+    }
+
+    // 검색 조건에 맞는 전체 글 개수 (페이지 수 계산에 필요)
+    public long count(String keyword) {
+        boolean hasKeyword = keyword != null && !keyword.isBlank();
+        String where = hasKeyword ? "WHERE title LIKE ? OR content LIKE ?" : "";
+        String sql = "SELECT COUNT(*) FROM posts " + where;
+
+        if (hasKeyword) {
+            String pattern = "%" + keyword + "%";
+            return jdbcTemplate.queryForObject(sql, Long.class, pattern, pattern);
+        }
+        return jdbcTemplate.queryForObject(sql, Long.class);
     }
 
     public Optional<Post> findById(Long id) {

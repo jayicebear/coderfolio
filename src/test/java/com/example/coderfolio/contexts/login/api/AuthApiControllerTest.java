@@ -1,6 +1,8 @@
 package com.example.coderfolio.contexts.login.api;
 
 import com.example.coderfolio.contexts.login.application.UserService;
+import com.example.coderfolio.contexts.login.application.dto.ChangePasswordCommand;
+import com.example.coderfolio.contexts.login.application.dto.DeleteAccountCommand;
 import com.example.coderfolio.contexts.login.application.dto.LoginCommand;
 import com.example.coderfolio.contexts.login.application.dto.LoginResult;
 import com.example.coderfolio.contexts.login.application.dto.SignupCommand;
@@ -8,19 +10,24 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -138,5 +145,75 @@ class AuthApiControllerTest {
                 .andExpect(status().isNoContent());
 
         assertThat(session.isInvalid()).isTrue();   // 세션이 실제로 파기됐는지
+    }
+
+    // ---------------- 비밀번호 변경 ----------------
+
+    @Test
+    @DisplayName("로그인 없이 비밀번호 변경 → 401")
+    void changePassword_withoutLogin_returns401() throws Exception {
+        mockMvc.perform(put("/api/auth/password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"currentPassword\":\"old1234\",\"newPassword\":\"new1234\"}"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("로그인 후 비밀번호 변경 → 204")
+    void changePassword_withLogin_returns204() throws Exception {
+        MockHttpSession session = new MockHttpSession();
+        session.setAttribute("loginUser", "maru");
+
+        mockMvc.perform(put("/api/auth/password")
+                        .session(session)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"currentPassword\":\"old1234\",\"newPassword\":\"new1234\"}"))
+                .andExpect(status().isNoContent());
+
+        verify(userService).changePassword(any(ChangePasswordCommand.class));
+    }
+
+    @Test
+    @DisplayName("현재 비밀번호가 틀리면 Service의 401이 HTTP 응답까지 전달됨")
+    void changePassword_wrongCurrentPassword_returns401() throws Exception {
+        doThrow(new ResponseStatusException(HttpStatus.UNAUTHORIZED, "현재 비밀번호가 틀렸어요."))
+                .when(userService).changePassword(any(ChangePasswordCommand.class));
+
+        MockHttpSession session = new MockHttpSession();
+        session.setAttribute("loginUser", "maru");
+
+        mockMvc.perform(put("/api/auth/password")
+                        .session(session)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"currentPassword\":\"wrong\",\"newPassword\":\"new1234\"}"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.message").value("현재 비밀번호가 틀렸어요."));
+    }
+
+    // ---------------- 회원 탈퇴 ----------------
+
+    @Test
+    @DisplayName("로그인 없이 탈퇴 시도 → 401")
+    void deleteAccount_withoutLogin_returns401() throws Exception {
+        mockMvc.perform(delete("/api/auth/me")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"password\":\"pw1234\"}"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("로그인 후 탈퇴 → 204 + 세션 무효화")
+    void deleteAccount_withLogin_returns204AndInvalidatesSession() throws Exception {
+        MockHttpSession session = new MockHttpSession();
+        session.setAttribute("loginUser", "maru");
+
+        mockMvc.perform(delete("/api/auth/me")
+                        .session(session)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"password\":\"pw1234\"}"))
+                .andExpect(status().isNoContent());
+
+        verify(userService).deleteAccount(any(DeleteAccountCommand.class));
+        assertThat(session.isInvalid()).isTrue();
     }
 }

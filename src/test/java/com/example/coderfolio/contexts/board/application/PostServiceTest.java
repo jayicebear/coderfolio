@@ -1,5 +1,6 @@
 package com.example.coderfolio.contexts.board.application;
 
+import com.example.coderfolio.contexts.board.application.dto.PostPageResult;
 import com.example.coderfolio.contexts.board.application.dto.PostResult;
 import com.example.coderfolio.contexts.board.application.dto.UpdatePostCommand;
 import com.example.coderfolio.contexts.board.application.dto.WritePostCommand;
@@ -15,6 +16,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -22,6 +24,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -67,6 +71,55 @@ class PostServiceTest {
 
         assertThat(result.getTitle()).isEqualTo("제목");
         assertThat(result.getAuthor()).isEqualTo("maru");
+    }
+
+    // ---------------- 목록 (페이지네이션 + 검색) ----------------
+
+    @Test
+    @DisplayName("1페이지, size=10 요청이면 offset 0, limit 10으로 조회")
+    void getPosts_firstPage_computesOffsetZero() {
+        when(postRepository.findPage(isNull(), eq(10), eq(0))).thenReturn(List.of(existingPost()));
+        when(postRepository.count(isNull())).thenReturn(1L);
+
+        PostPageResult result = postService.getPosts(1, 10, null);
+
+        assertThat(result.getPosts()).hasSize(1);
+        assertThat(result.getTotalPages()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("3페이지, size=10 요청이면 offset 20으로 조회")
+    void getPosts_thirdPage_computesOffsetTwenty() {
+        when(postRepository.findPage(isNull(), eq(10), eq(20))).thenReturn(List.of());
+        when(postRepository.count(isNull())).thenReturn(25L);
+
+        PostPageResult result = postService.getPosts(3, 10, null);
+
+        verify(postRepository).findPage(isNull(), eq(10), eq(20));
+        assertThat(result.getTotalPages()).isEqualTo(3);   // 25개를 10개씩 → 3페이지
+    }
+
+    @Test
+    @DisplayName("0 이하의 페이지 번호는 1페이지로 보정됨")
+    void getPosts_invalidPage_fallsBackToFirstPage() {
+        when(postRepository.findPage(isNull(), eq(10), eq(0))).thenReturn(List.of());
+        when(postRepository.count(isNull())).thenReturn(0L);
+
+        PostPageResult result = postService.getPosts(0, 10, null);
+
+        assertThat(result.getPage()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("검색어를 넘기면 그대로 Repository에 전달됨")
+    void getPosts_withKeyword_passesToRepository() {
+        when(postRepository.findPage(eq("자바"), eq(10), eq(0))).thenReturn(List.of(existingPost()));
+        when(postRepository.count(eq("자바"))).thenReturn(1L);
+
+        postService.getPosts(1, 10, "자바");
+
+        verify(postRepository).findPage(eq("자바"), eq(10), eq(0));
+        verify(postRepository).count(eq("자바"));
     }
 
     // ---------------- 글쓰기 ----------------

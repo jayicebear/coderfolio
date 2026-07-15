@@ -29,17 +29,48 @@
         <a class="btn" href="/board-write.html">글쓰기</a>
     </div>
 
+    <!-- 검색창: 제출하면 1페이지부터 그 검색어로 다시 조회 -->
+    <form class="search-bar" id="searchForm">
+        <input type="text" id="keywordInput" placeholder="제목/내용 검색">
+        <button type="submit" class="btn-ghost">검색</button>
+    </form>
+
     <!-- JS가 목록을 그려 넣는 자리 -->
     <div id="list"></div>
+    <!-- JS가 페이지 버튼을 그려 넣는 자리 -->
+    <div id="pagination"></div>
 </div>
 
 <script>
-(async () => {
-    const posts = await api('/api/posts');   // JSON 배열: [{ id, title, author, createdAt, ... }]
+// 주소창의 ?keyword=...&page=... 를 그대로 기억해서, 새로고침해도 검색 상태가 유지되게 함
+const params = new URLSearchParams(location.search);
+let currentPage = parseInt(params.get('page') || '1', 10);
+let currentKeyword = params.get('keyword') || '';
+
+async function load() {
+    document.getElementById('keywordInput').value = currentKeyword;
+
+    // 주소창을 지금 상태에 맞게 갱신 (뒤로가기로 이전 검색 결과로 돌아갈 수 있게)
+    const query = new URLSearchParams();
+    query.set('page', currentPage);
+    if (currentKeyword) query.set('keyword', currentKeyword);
+    history.replaceState(null, '', '/board.html?' + query.toString());
+
+    const url = '/api/posts?page=' + currentPage + '&size=10'
+            + (currentKeyword ? '&keyword=' + encodeURIComponent(currentKeyword) : '');
+    const result = await api(url);   // { posts: [...], page, size, totalCount, totalPages }
+
+    renderList(result.posts);
+    renderPagination(result.page, result.totalPages);
+}
+
+function renderList(posts) {
     const box = document.getElementById('list');
 
     if (posts.length === 0) {
-        box.innerHTML = '<p class="empty">아직 작성된 글이 없어요.</p>';
+        box.innerHTML = '<p class="empty">'
+                + (currentKeyword ? '검색 결과가 없어요.' : '아직 작성된 글이 없어요.')
+                + '</p>';
         return;
     }
 
@@ -56,7 +87,36 @@
                     </tr>`).join('')}
             </tbody>
         </table>`;
-})();
+}
+
+// 이전/다음 버튼 + "2 / 5 페이지" 표시
+function renderPagination(page, totalPages) {
+    const box = document.getElementById('pagination');
+    if (totalPages <= 1) {
+        box.innerHTML = '';
+        return;
+    }
+    box.innerHTML = `
+        <div class="pagination">
+            <button class="btn-ghost" ${page <= 1 ? 'disabled' : ''} onclick="goPage(${page - 1})">이전</button>
+            <span class="page-info">${page} / ${totalPages}</span>
+            <button class="btn-ghost" ${page >= totalPages ? 'disabled' : ''} onclick="goPage(${page + 1})">다음</button>
+        </div>`;
+}
+
+function goPage(page) {
+    currentPage = page;
+    load();
+}
+
+document.getElementById('searchForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    currentKeyword = document.getElementById('keywordInput').value.trim();
+    currentPage = 1;   // 검색하면 1페이지부터 다시 봄
+    load();
+});
+
+load();
 </script>
 </body>
 </html>

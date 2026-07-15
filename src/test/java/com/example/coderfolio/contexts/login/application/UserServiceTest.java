@@ -1,8 +1,11 @@
 package com.example.coderfolio.contexts.login.application;
 
+import com.example.coderfolio.contexts.login.application.dto.ChangePasswordCommand;
+import com.example.coderfolio.contexts.login.application.dto.DeleteAccountCommand;
 import com.example.coderfolio.contexts.login.application.dto.LoginCommand;
 import com.example.coderfolio.contexts.login.application.dto.LoginResult;
 import com.example.coderfolio.contexts.login.application.dto.SignupCommand;
+import com.example.coderfolio.contexts.login.infra.LoginAttemptLimiter;
 import com.example.coderfolio.contexts.login.infra.User;
 import com.example.coderfolio.contexts.login.infra.UserRepository;
 import org.junit.jupiter.api.DisplayName;
@@ -12,13 +15,16 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -41,6 +47,9 @@ class UserServiceTest {
 
     @Mock
     PasswordEncoder passwordEncoder;
+
+    @Mock
+    LoginAttemptLimiter loginAttemptLimiter;
 
     @InjectMocks
     UserService userService;
@@ -130,5 +139,106 @@ class UserServiceTest {
         Optional<LoginResult> result = userService.login(new LoginCommand("ghost", "pw1234"));
 
         assertThat(result).isEmpty();
+    }
+
+    // ---------------- 로그인 시도 제한 (brute-force 방어) ----------------
+
+    @Test
+    @DisplayName("로그인 성공하면 limiter에 성공을 기록하고, 실패 기록은 안 남김")
+    void login_success_recordsSuccessOnLimiter() {
+        when(userRepository.findByUsername("maru"))
+                .thenReturn(Optional.of(new User("maru", "ENCODED")));
+        when(passwordEncoder.matches("pw1234", "ENCODED")).thenReturn(true);
+
+        userService.login(new LoginCommand("maru", "pw1234"));
+
+        verify(loginAttemptLimiter).recordSuccess("maru");
+        verify(loginAttemptLimiter, never()).recordFailure(any());
+    }
+
+    @Test
+    @DisplayName("로그인 실패하면 limiter에 실패를 기록함")
+    void login_failure_recordsFailureOnLimiter() {
+        when(userRepository.findByUsername("maru"))
+                .thenReturn(Optional.of(new User("maru", "ENCODED")));
+        when(passwordEncoder.matches("wrong", "ENCODED")).thenReturn(false);
+
+        userService.login(new LoginCommand("maru", "wrong"));
+
+        verify(loginAttemptLimiter).recordFailure("maru");
+    }
+
+    @Test
+    @DisplayName("limiter가 잠긴 상태로 판단하면, 비밀번호를 맞춰봐도 429가 그대로 전달됨 (DB 조회 자체를 안 함)")
+    void login_lockedByLimiter_throws429WithoutTouchingDb() {
+        doThrow(new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "너무 많이 시도했어요."))
+                .when(loginAttemptLimiter).checkNotLocked("maru");
+
+        assertThatThrownBy(() -> userService.login(new LoginCommand("maru", "pw1234")))
+                .isInstanceOf(ResponseStatusException.class)
+                .extracting("statusCode").isEqualTo(HttpStatus.TOO_MANY_REQUESTS);
+
+        verify(userRepository, never()).findByUsername(any());
+    }
+
+    // ---------------- 비밀번호 변경 ----------------
+
+    @Test
+    @DisplayName("새 비밀번호가 비어있으면 실패")
+    void changePassword_blankNewPassword_fails() {
+        assertThatThrownBy(() -> userService.changePassword(
+                new ChangePasswordCommand("maru", "old1234", "")))
+                .isInstanceOf(IllegalArgumentException.class);
+        verify(userRepository, never()).updatePassword(any(), any());
+    }
+
+    @Test
+    @DisplayName("현재 비밀번호가 틀리면 401")
+    void changePassword_wrongCurrentPassword_throws401() {
+        when(userRepository.findByUsername("maru")).thenReturn(Optional.of(new User("maru", "ENCODED")));
+        when(passwordEncoder.matches("wrong", "ENCODED")).thenReturn(false);
+
+        assertThatThrownBy(() -> userService.changePassword(
+                new ChangePasswordCommand("maru", "wrong", "new1234")))
+                .isInstanceOf(ResponseStatusException.class)
+                .extracting("statusCode").isEqualTo(HttpStatus.UNAUTHORIZED);
+        verify(userRepository, never()).updatePassword(any(), any());
+    }
+
+    @Test
+    @DisplayName("현재 비밀번호가 맞으면 새 비밀번호를 암호화해서 저장")
+    void changePassword_success_savesEncodedNewPassword() {
+        when(userRepository.findByUsername("maru")).thenReturn(Optional.of(new User("maru", "ENCODED_OLD")));
+        when(passwordEncoder.matches("old1234", "ENCODED_OLD")).thenReturn(true);
+        when(passwordEncoder.encode("new1234")).thenReturn("ENCODED_NEW");
+
+        userService.changePassword(new ChangePasswordCommand("maru", "old1234", "new1234"));
+
+        verify(userRepository).updatePassword("maru", "ENCODED_NEW");
+    }
+
+    // ---------------- 회원 탈퇴 ----------------
+
+    @Test
+    @DisplayName("비밀번호가 틀리면 탈퇴 실패 (401)")
+    void deleteAccount_wrongPassword_throws401() {
+        when(userRepository.findByUsername("maru")).thenReturn(Optional.of(new User("maru", "ENCODED")));
+        when(passwordEncoder.matches("wrong", "ENCODED")).thenReturn(false);
+
+        assertThatThrownBy(() -> userService.deleteAccount(new DeleteAccountCommand("maru", "wrong")))
+                .isInstanceOf(ResponseStatusException.class)
+                .extracting("statusCode").isEqualTo(HttpStatus.UNAUTHORIZED);
+        verify(userRepository, never()).deleteByUsername(any());
+    }
+
+    @Test
+    @DisplayName("비밀번호가 맞으면 계정이 삭제됨")
+    void deleteAccount_correctPassword_deletesUser() {
+        when(userRepository.findByUsername("maru")).thenReturn(Optional.of(new User("maru", "ENCODED")));
+        when(passwordEncoder.matches("pw1234", "ENCODED")).thenReturn(true);
+
+        userService.deleteAccount(new DeleteAccountCommand("maru", "pw1234"));
+
+        verify(userRepository).deleteByUsername("maru");
     }
 }

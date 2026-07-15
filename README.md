@@ -8,10 +8,13 @@ Spring Boot 기반 REST API 서버 + 순수 HTML/JS 프론트엔드로 구성되
 ### 로그인
 - 회원가입 / 로그인 / 로그아웃 (세션 기반)
 - 비밀번호는 BCrypt로 암호화하여 저장
+- 로그인 시도 제한 (5회 연속 실패 시 5분 잠금, brute-force 방어)
+- 비밀번호 변경 / 회원 탈퇴 (본인 확인을 위해 비밀번호 재입력 필요)
 
 ### 게시판
-- 글 목록 / 상세 조회 (비로그인도 가능)
+- 글 목록 / 상세 조회 (비로그인도 가능), 페이지네이션 + 제목·내용 검색
 - 글쓰기 / 수정 / 삭제 (로그인 필요, 본인 글만 수정·삭제 가능)
+- 댓글 작성 / 삭제 (로그인 필요, 본인 댓글만 삭제 가능)
 
 ### 포트폴리오 (이력서)
 - 기본 정보(이름, 이메일, 자기소개) 등록·수정
@@ -85,6 +88,8 @@ DB_PASSWORD=본인의_MySQL_비밀번호
 | POST | `/api/auth/login` | 로그인 | - |
 | POST | `/api/auth/logout` | 로그아웃 | 필요 |
 | GET | `/api/auth/me` | 로그인 상태 확인 | 필요 |
+| PUT | `/api/auth/password` | 비밀번호 변경 | 필요 |
+| DELETE | `/api/auth/me` | 회원 탈퇴 | 필요 |
 | GET | `/api/posts` | 글 목록 | - |
 | GET | `/api/posts/{id}` | 글 상세 | - |
 | POST | `/api/posts` | 글쓰기 | 필요 |
@@ -93,6 +98,9 @@ DB_PASSWORD=본인의_MySQL_비밀번호
 | GET | `/api/profiles/{username}` | 포트폴리오 조회 | - |
 | PUT | `/api/profiles/me` | 기본 정보 저장 | 필요 |
 | POST/PUT/DELETE | `/api/profiles/me/{educations\|careers\|projects}` | 학력/경력/프로젝트 추가·수정·삭제 | 필요 |
+| GET | `/api/posts/{postId}/comments` | 댓글 목록 | - |
+| POST | `/api/posts/{postId}/comments` | 댓글 작성 | 필요 |
+| DELETE | `/api/comments/{id}` | 댓글 삭제 (본인만) | 필요 |
 
 모든 에러 응답은 `{ "message": "..." }` 형태의 JSON과 상태 코드(400/401/403/404)로 통일되어 있습니다.
 
@@ -108,7 +116,7 @@ DB_PASSWORD=본인의_MySQL_비밀번호
 ## 앞으로 할 일
 
 - [ ] Repository(SQL) 계층 테스트 (Testcontainers)
-- [ ] 로그인 시도 제한 (brute-force 방어)
-- [ ] 게시판 페이지네이션 / 검색
-- [ ] 댓글 기능
-- [ ] 비밀번호 변경 / 회원 탈퇴
+- [x] 로그인 시도 제한 (brute-force 방어)
+- [x] 게시판 페이지네이션 / 검색
+- [x] 댓글 기능
+- [x] 비밀번호 변경 / 회원 탈퇴

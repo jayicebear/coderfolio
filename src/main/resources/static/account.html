@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>계정 설정</title>
+    <link rel="stylesheet" href="/css/app.css">
+    <script src="/js/app.js"></script>
+</head>
+<body>
+
+<!-- 상단 네비게이션 바 -->
+<header class="topbar">
+    <div class="topbar-inner">
+        <a class="brand" href="/">coder<span class="dot">folio</span></a>
+        <nav>
+            <a href="/">홈</a>
+            <a href="/board.html">게시판</a>
+            <a href="/profile-edit.html">내 이력서</a>
+            <a class="active" href="/account.html">계정 설정</a>
+        </nav>
+    </div>
+</header>
+
+<div class="page">
+    <div class="page-head">
+        <h2>계정 설정</h2>
+        <p class="desc">비밀번호 변경 및 회원 탈퇴</p>
+    </div>
+
+    <!-- ===== 비밀번호 변경 ===== -->
+    <div class="section">
+        <h3>비밀번호 변경</h3>
+        <div class="card wide">
+            <p class="alert error" id="passwordError" hidden></p>
+            <p class="alert success" id="passwordSuccess" hidden></p>
+            <form id="passwordForm">
+                <label>현재 비밀번호</label>
+                <input type="password" name="currentPassword" placeholder="현재 비밀번호" required>
+                <label>새 비밀번호</label>
+                <input type="password" name="newPassword" placeholder="새 비밀번호" required>
+                <button type="submit">비밀번호 변경</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- ===== 회원 탈퇴 ===== -->
+    <div class="section">
+        <h3>회원 탈퇴</h3>
+        <div class="card wide">
+            <p class="desc" style="margin-bottom: 16px;">
+                탈퇴하면 로그인 계정이 즉시 삭제되며 되돌릴 수 없어요.
+                작성한 글/댓글/이력서는 남지만, 다시 로그인해서 관리할 수는 없어요.
+            </p>
+            <p class="alert error" id="deleteError" hidden></p>
+            <form id="deleteForm">
+                <label>비밀번호 확인</label>
+                <input type="password" name="password" placeholder="본인 확인을 위해 비밀번호를 입력하세요" required>
+                <button type="submit" class="btn-del" style="width:100%; padding:11px 20px; font-size:14px;">회원 탈퇴</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+requireLogin();   // 비로그인이면 로그인 화면으로 튕김
+
+document.getElementById('passwordForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = new FormData(e.target);
+    const errorEl = document.getElementById('passwordError');
+    const successEl = document.getElementById('passwordSuccess');
+    errorEl.hidden = true;
+    successEl.hidden = true;
+
+    try {
+        await api('/api/auth/password', {
+            method: 'PUT',
+            body: {
+                currentPassword: form.get('currentPassword'),
+                newPassword: form.get('newPassword'),
+            },
+        });
+        e.target.reset();
+        successEl.textContent = '비밀번호가 변경됐어요.';
+        successEl.hidden = false;
+    } catch (err) {
+        if (err.status === 401 && err.message === '로그인이 필요해요.') { location.href = '/login.html'; return; }
+        errorEl.textContent = err.message;   // "현재 비밀번호가 틀렸어요." 등
+        errorEl.hidden = false;
+    }
+});
+
+document.getElementById('deleteForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!confirm('정말로 탈퇴하시겠어요? 이 작업은 되돌릴 수 없어요.')) return;
+
+    const form = new FormData(e.target);
+    const errorEl = document.getElementById('deleteError');
+    errorEl.hidden = true;
+
+    try {
+        await api('/api/auth/me', { method: 'DELETE', body: { password: form.get('password') } });
+        location.href = '/login.html';   // 탈퇴 성공 → 로그인 화면으로
+    } catch (err) {
+        errorEl.textContent = err.message;   // "비밀번호가 틀렸어요." 등
+        errorEl.hidden = false;
+    }
+});
+</script>
+</body>
+</html>

@@ -1,5 +1,6 @@
 package com.example.coderfolio.contexts.board.application;
 
+import com.example.coderfolio.contexts.board.application.dto.PostPageResult;
 import com.example.coderfolio.contexts.board.application.dto.PostResult;
 import com.example.coderfolio.contexts.board.application.dto.UpdatePostCommand;
 import com.example.coderfolio.contexts.board.application.dto.WritePostCommand;
@@ -26,12 +27,22 @@ public class PostService {
         this.postRepository = postRepository;
     }
 
-    // 전체 글 목록 (최신순)
-    public List<PostResult> getAllPosts() {
-        return postRepository.findAllByOrderByCreatedAtDesc()
+    private static final int MAX_PAGE_SIZE = 100;
+
+    // 글 목록 (페이지네이션 + 검색). keyword가 비어있으면 전체 대상으로 검색한 것과 동일하게 동작
+    public PostPageResult getPosts(int page, int size, String keyword) {
+        int safePage = Math.max(page, 1);
+        int safeSize = (size < 1 || size > MAX_PAGE_SIZE) ? 10 : size;
+        int offset = (safePage - 1) * safeSize;
+
+        List<PostResult> posts = postRepository.findPage(keyword, safeSize, offset)
                 .stream()
                 .map(PostResult::from)
                 .toList();
+        long totalCount = postRepository.count(keyword);
+        int totalPages = (int) Math.ceil((double) totalCount / safeSize);
+
+        return new PostPageResult(posts, safePage, safeSize, totalCount, totalPages);
     }
 
     // 글 하나 조회. 없으면 404 에러

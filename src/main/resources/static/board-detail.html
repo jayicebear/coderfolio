@@ -26,6 +26,7 @@
 
 <script>
 const id = new URLSearchParams(location.search).get('id');
+let me = null;   // 로그인 정보 (댓글 작성/삭제 버튼 노출 여부에 씀)
 
 // 삭제 버튼: 한 번 더 물어보고 DELETE 요청 → 성공하면 목록으로
 async function deletePost() {
@@ -38,13 +39,62 @@ async function deletePost() {
     }
 }
 
+// ---------------- 댓글 ----------------
+
+async function loadComments() {
+    const comments = await api('/api/posts/' + id + '/comments');
+    const box = document.getElementById('commentList');
+
+    if (comments.length === 0) {
+        box.innerHTML = '<p class="empty" style="padding:24px 0;">아직 댓글이 없어요.</p>';
+        return;
+    }
+
+    box.innerHTML = comments.map(c => `
+        <div class="comment-item" id="comment-${c.id}">
+            <div class="comment-top">
+                <span class="comment-author">${esc(c.author)}</span>
+                <span class="comment-date">${fmtDate(c.createdAt)}</span>
+                ${me && me.username === c.author
+                    ? `<button class="btn-del" onclick="deleteComment(${c.id})">삭제</button>`
+                    : ''}
+            </div>
+            <p class="comment-content">${esc(c.content)}</p>
+        </div>`).join('');
+}
+
+async function deleteComment(commentId) {
+    if (!confirm('이 댓글을 삭제할까요?')) return;
+    try {
+        await api('/api/comments/' + commentId, { method: 'DELETE' });
+        loadComments();
+    } catch (err) {
+        alert(err.message);
+    }
+}
+
+document.addEventListener('submit', async (e) => {
+    if (e.target.id !== 'commentForm') return;
+    e.preventDefault();
+
+    const textarea = e.target.content;
+    try {
+        await api('/api/posts/' + id + '/comments', { method: 'POST', body: { content: textarea.value } });
+        textarea.value = '';
+        loadComments();
+    } catch (err) {
+        if (err.status === 401) { location.href = '/login.html'; return; }
+        alert(err.message);
+    }
+});
+
 (async () => {
-    // 주소의 ?id=3 부분에서 글 번호를 꺼냄 (예전 /board/{id} 경로변수가 하던 역할)
     const box = document.getElementById('post');
 
     try {
         // 글 내용과 내 로그인 정보를 동시에 요청 (로그인 안 해도 글은 볼 수 있음)
-        const [post, me] = await Promise.all([api('/api/posts/' + id), currentUser()]);
+        const [post, loginUser] = await Promise.all([api('/api/posts/' + id), currentUser()]);
+        me = loginUser;
         document.title = post.title;
 
         // 내가 쓴 글일 때만 수정/삭제 버튼 노출
@@ -62,7 +112,21 @@ async function deletePost() {
                 </div>` : ''}
             </div>
             <div class="post-content">${esc(post.content)}</div>
+
+            <div class="comment-section">
+                <h3>댓글</h3>
+                <div id="commentList"></div>
+                ${me
+                    ? `<form class="add-form" id="commentForm">
+                        <textarea name="content" placeholder="댓글을 입력하세요" required style="min-height:70px;"></textarea>
+                        <button type="submit">댓글 작성</button>
+                       </form>`
+                    : `<p class="empty" style="padding:16px 0;"><a href="/login.html">로그인</a> 후 댓글을 남길 수 있어요.</p>`}
+            </div>
+
             <a class="back" href="/board.html">← 목록으로</a>`;
+
+        await loadComments();
     } catch (err) {
         box.innerHTML = `
             <p class="empty">${esc(err.message)}</p>

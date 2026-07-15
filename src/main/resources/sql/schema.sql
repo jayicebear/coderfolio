@@ -21,6 +21,15 @@ CREATE TABLE IF NOT EXISTS posts (
   created_at DATETIME(6)
 );
 
+-- 댓글: post_id로 어느 글에 달린 댓글인지 표시 (posts.id와 값으로만 연결, 진짜 FK 제약은 안 걸음 - author를 users.username과 연결한 것과 같은 방식)
+CREATE TABLE IF NOT EXISTS comments (
+  id         BIGINT AUTO_INCREMENT PRIMARY KEY,
+  post_id    BIGINT       NOT NULL,
+  author     VARCHAR(50)  NOT NULL,
+  content    TEXT         NOT NULL,
+  created_at DATETIME(6)
+);
+
 -- ============================================================
 --  경력(이력서) 관련 테이블
 --  한 사용자(username)당 profiles 1줄 + educations/careers/projects 는 여러 줄.

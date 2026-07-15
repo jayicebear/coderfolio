@@ -1,9 +1,13 @@
 package com.example.coderfolio.contexts.login.api;
 
+import com.example.coderfolio.contexts.login.api.dto.ChangePasswordApiRequest;
+import com.example.coderfolio.contexts.login.api.dto.DeleteAccountApiRequest;
 import com.example.coderfolio.contexts.login.api.dto.LoginApiRequest;
 import com.example.coderfolio.contexts.login.api.dto.SignupApiRequest;
 import com.example.coderfolio.contexts.login.api.dto.UserResponse;
 import com.example.coderfolio.contexts.login.application.UserService;
+import com.example.coderfolio.contexts.login.application.dto.ChangePasswordCommand;
+import com.example.coderfolio.contexts.login.application.dto.DeleteAccountCommand;
 import com.example.coderfolio.contexts.login.application.dto.LoginCommand;
 import com.example.coderfolio.contexts.login.application.dto.LoginResult;
 import com.example.coderfolio.contexts.login.application.dto.SignupCommand;
@@ -67,10 +71,34 @@ public class AuthApiController {
     // 프론트가 페이지를 열 때마다 이걸 호출해서, 401이면 로그인 화면으로 보냄.
     @GetMapping("/me")
     public UserResponse me(HttpSession session) {
+        return new UserResponse(requireLogin(session));
+    }
+
+    // PUT /api/auth/password  -  비밀번호 변경. body: { "currentPassword": "...", "newPassword": "..." }
+    @PutMapping("/password")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void changePassword(@RequestBody ChangePasswordApiRequest request, HttpSession session) {
+        String loginUser = requireLogin(session);
+        userService.changePassword(
+                new ChangePasswordCommand(loginUser, request.getCurrentPassword(), request.getNewPassword()));
+    }
+
+    // DELETE /api/auth/me  -  회원 탈퇴. body: { "password": "..." } (본인 확인용)
+    // 계정을 지운 뒤, 더 이상 유효하지 않은 세션이니 같이 무효화함.
+    @DeleteMapping("/me")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteAccount(@RequestBody DeleteAccountApiRequest request, HttpSession session) {
+        String loginUser = requireLogin(session);
+        userService.deleteAccount(new DeleteAccountCommand(loginUser, request.getPassword()));
+        session.invalidate();
+    }
+
+    // 세션에서 로그인 사용자를 꺼내고, 없으면 401 (다른 컨트롤러들과 같은 패턴)
+    private String requireLogin(HttpSession session) {
         String loginUser = (String) session.getAttribute("loginUser");
         if (loginUser == null) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "로그인이 필요해요.");
         }
-        return new UserResponse(loginUser);
+        return loginUser;
     }
 }

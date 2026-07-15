@@ -39,4 +39,16 @@ public class UserRepository {
         List<User> results = jdbcTemplate.query(sql, USER_MAPPER, username);
         return results.stream().findFirst();
     }
+
+    // 비밀번호 변경: 이미 암호화된 값을 받아서 그대로 덮어씀 (암호화는 Service가 미리 해서 넘김)
+    public void updatePassword(String username, String hashedPassword) {
+        jdbcTemplate.update("UPDATE users SET password = ? WHERE username = ?", hashedPassword, username);
+    }
+
+    // 회원 탈퇴: 계정 자체를 삭제
+    // (posts/comments/profile 등 이 사람이 남긴 다른 데이터는 지우지 않음 - author/username 값으로만
+    //  느슨하게 연결되어 있어서, 이 프로젝트의 다른 관계들과 마찬가지로 진짜 FK 제약은 걸지 않은 설계)
+    public void deleteByUsername(String username) {
+        jdbcTemplate.update("DELETE FROM users WHERE username = ?", username);
+    }
 }

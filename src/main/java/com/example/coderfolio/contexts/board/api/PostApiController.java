@@ -1,5 +1,6 @@
 package com.example.coderfolio.contexts.board.api;
 
+import com.example.coderfolio.contexts.board.api.dto.PostPageResponse;
 import com.example.coderfolio.contexts.board.api.dto.PostViewResponse;
 import com.example.coderfolio.contexts.board.api.dto.PostWriteApiRequest;
 import com.example.coderfolio.contexts.board.application.PostService;
@@ -10,8 +11,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
-
-import java.util.List;
 
 // ============================================================
 //  PostApiController  -  게시판 JSON API
@@ -30,10 +29,14 @@ public class PostApiController {
         this.postService = postService;
     }
 
-    // GET /api/posts  -  글 목록 (최신순). List를 리턴하면 JSON 배열로 내려감
+    // GET /api/posts?page=1&size=10&keyword=검색어  -  페이지네이션 + 검색
+    // 파라미터를 아예 안 줘도(예전과 같은 GET /api/posts) 1페이지/10개/전체 조회로 동작함
     @GetMapping
-    public List<PostViewResponse> list() {
-        return postService.getAllPosts().stream().map(PostViewResponse::from).toList();
+    public PostPageResponse list(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) String keyword) {
+        return PostPageResponse.from(postService.getPosts(page, size, keyword));
     }
 
     // GET /api/posts/{id}  -  글 하나. 없으면 Service가 404를 던짐
