@@ -11,10 +11,12 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 // ============================================================
 //  LoginAttemptLimiterTest  -  brute-force 방어 규칙 검증
 //  Mock 없이 진짜 객체를 씀 (DB 등 외부 의존성이 없는 순수 메모리 로직이라서).
+//  변수 타입은 인터페이스(LoginAttemptLimiter), 실제 객체는 구현체(InMemory...)로 —
+//  "인터페이스로 다루고 구현은 갈아끼운다"는 사용법 그대로.
 // ============================================================
 class LoginAttemptLimiterTest {
 
-    LoginAttemptLimiter limiter = new LoginAttemptLimiter();
+    LoginAttemptLimiter limiter = new InMemoryLoginAttemptLimiter();
 
     @Test
     @DisplayName("처음 시도하는 아이디는 잠겨있지 않음")
