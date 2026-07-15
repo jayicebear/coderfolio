@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>내 이력서 편집</title>
+    <link rel="stylesheet" href="/css/app.css">
+    <script src="/js/app.js"></script>
+</head>
+<body>
+
+<!-- 상단 네비게이션 바 -->
+<header class="topbar">
+    <div class="topbar-inner">
+        <a class="brand" href="/">coder<span class="dot">folio</span></a>
+        <nav>
+            <a href="/">홈</a>
+            <a href="/board.html">게시판</a>
+            <a class="active" href="/profile-edit.html">내 이력서</a>
+        </nav>
+    </div>
+</header>
+
+<div class="page">
+
+    <div class="toolbar">
+        <div class="page-head" style="margin-bottom: 0;">
+            <h2>내 이력서 편집</h2>
+            <p class="desc">작성한 내용은 <b id="publicUrl"></b> 주소로 공개돼요.</p>
+        </div>
+        <a class="btn" id="previewLink" href="#">미리보기</a>
+    </div>
+
+    <p class="alert error" id="error" hidden></p>
+
+    <!-- ===== 기본 정보 ===== -->
+    <div class="section">
+        <h3>기본 정보</h3>
+        <div class="card wide">
+            <form id="profileForm">
+                <label>이름</label>
+                <input type="text" name="name" placeholder="이름">
+                <label>이메일</label>
+                <input type="email" name="email" placeholder="you@example.com">
+                <label>자기소개</label>
+                <textarea name="intro" placeholder="간단한 자기소개"></textarea>
+                <button type="submit">기본 정보 저장</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- ===== 학력 ===== -->
+    <div class="section">
+        <h3>학력</h3>
+        <div id="eduList"></div>
+        <form class="add-form" id="eduForm">
+            <div class="row">
+                <input type="text" name="school" placeholder="학교명 *" required>
+                <input type="text" name="major" placeholder="전공">
+            </div>
+            <div class="row">
+                <input type="text" name="degree" placeholder="학위 (예: 학사)">
+                <input type="text" name="period" placeholder="기간 (예: 2019.03 ~ 2023.02)">
+            </div>
+            <button type="submit">+ 학력 추가</button>
+        </form>
+    </div>
+
+    <!-- ===== 경력 ===== -->
+    <div class="section">
+        <h3>경력</h3>
+        <div id="careerList"></div>
+        <form class="add-form" id="careerForm">
+            <div class="row">
+                <input type="text" name="company" placeholder="회사명 *" required>
+                <input type="text" name="position" placeholder="직책/직무">
+            </div>
+            <input type="text" name="period" placeholder="기간 (예: 2023.03 ~ 재직중)">
+            <textarea name="description" placeholder="담당 업무 설명"></textarea>
+            <button type="submit">+ 경력 추가</button>
+        </form>
+    </div>
+
+    <!-- ===== 프로젝트 ===== -->
+    <div class="section">
+        <h3>프로젝트</h3>
+        <div id="projectList"></div>
+        <form class="add-form" id="projectForm">
+            <div class="row">
+                <input type="text" name="name" placeholder="프로젝트 이름 *" required>
+                <input type="text" name="period" placeholder="기간">
+            </div>
+            <input type="text" name="techStack" placeholder="사용 기술 (예: Spring, MySQL)">
+            <textarea name="description" placeholder="프로젝트 설명"></textarea>
+            <button type="submit">+ 프로젝트 추가</button>
+        </form>
+    </div>
+
+</div>
+
+<script>
+let me;     // 로그인한 내 정보 { username }
+let data;   // 마지막으로 불러온 이력서 전체 (수정 폼을 채울 때 씀)
+
+// ---- 각 종류별 입력 항목 정의 (수정 폼을 만들 때 사용) ----
+const KIND_FIELDS = {
+    educations: [
+        { name: 'school',    ph: '학교명 *', required: true },
+        { name: 'major',     ph: '전공' },
+        { name: 'degree',    ph: '학위 (예: 학사)' },
+        { name: 'period',    ph: '기간' },
+    ],
+    careers: [
+        { name: 'company',   ph: '회사명 *', required: true },
+        { name: 'position',  ph: '직책/직무' },
+        { name: 'period',    ph: '기간' },
+        { name: 'description', ph: '담당 업무 설명', textarea: true },
+    ],
+    projects: [
+        { name: 'name',      ph: '프로젝트 이름 *', required: true },
+        { name: 'period',    ph: '기간' },
+        { name: 'techStack', ph: '사용 기술' },
+        { name: 'description', ph: '프로젝트 설명', textarea: true },
+    ],
+};
+
+// ---- 에러 표시 ----
+function showError(msg) {
+    const el = document.getElementById('error');
+    el.textContent = msg;
+    el.hidden = false;
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// 항목 오른쪽 위 수정/삭제 버튼 묶음
+function itemButtons(kind, id) {
+    return `
+        <div style="display:flex; gap:6px; flex:none;">
+            <button class="btn-edit" onclick="startEdit('${kind}', ${id})">수정</button>
+            <button class="btn-del" onclick="del('${kind}', ${id})">삭제</button>
+        </div>`;
+}
+
+// ---- 이력서를 다시 불러와서 세 목록을 다시 그림 ----
+async function reload() {
+    data = await api('/api/profiles/' + encodeURIComponent(me.username));
+
+    // 기본 정보 폼에 현재 값 채우기
+    const f = document.getElementById('profileForm');
+    f.name.value = data.name || '';
+    f.email.value = data.email || '';
+    f.intro.value = data.intro || '';
+
+    // 학력 목록 (각 항목에 id를 붙여서 수정 시 그 자리만 폼으로 바꿀 수 있게 함)
+    document.getElementById('eduList').innerHTML = data.educations.map(e => `
+        <div class="item" id="item-educations-${e.id}">
+            <div class="item-top">
+                <span class="item-title">${esc(e.school)}</span>
+                ${itemButtons('educations', e.id)}
+            </div>
+            <div class="item-sub">${esc(e.major || '')}${ifValue(e.degree, ' · ' + esc(e.degree))}${ifValue(e.period, ' · ' + esc(e.period))}</div>
+        </div>`).join('');
+
+    // 경력 목록
+    document.getElementById('careerList').innerHTML = data.careers.map(c => `
+        <div class="item" id="item-careers-${c.id}">
+            <div class="item-top">
+                <span class="item-title">${esc(c.company)}</span>
+                ${itemButtons('careers', c.id)}
+            </div>
+            <div class="item-sub">${esc(c.position || '')}${ifValue(c.period, ' · ' + esc(c.period))}</div>
+            ${ifValue(c.description, `<p class="item-desc">${esc(c.description)}</p>`)}
+        </div>`).join('');
+
+    // 프로젝트 목록
+    document.getElementById('projectList').innerHTML = data.projects.map(p => `
+        <div class="item" id="item-projects-${p.id}">
+            <div class="item-top">
+                <span class="item-title">${esc(p.name)}</span>
+                ${itemButtons('projects', p.id)}
+            </div>
+            ${ifValue(p.period, `<div class="item-sub">${esc(p.period)}</div>`)}
+            ${ifValue(p.description, `<p class="item-desc">${esc(p.description)}</p>`)}
+            ${ifValue(p.techStack, `<span class="tag">${esc(p.techStack)}</span>`)}
+        </div>`).join('');
+}
+
+// ---- 수정 모드: 항목 카드를 그 자리에서 입력 폼으로 바꿈 ----
+function startEdit(kind, id) {
+    const item = data[kind].find(x => x.id === id);   // 현재 값을 찾아서
+    const box = document.getElementById(`item-${kind}-${id}`);
+
+    // 종류별 필드 정의(KIND_FIELDS)를 보고 입력칸들을 만들되, 현재 값으로 미리 채움
+    const inputs = KIND_FIELDS[kind].map(f => f.textarea
+        ? `<textarea name="${f.name}" placeholder="${f.ph}">${esc(item[f.name] || '')}</textarea>`
+        : `<input type="text" name="${f.name}" placeholder="${f.ph}" value="${esc(item[f.name] || '')}" ${f.required ? 'required' : ''}>`
+    ).join('');
+
+    box.innerHTML = `
+        <form onsubmit="submitEdit(event, '${kind}', ${id})">
+            ${inputs}
+            <button type="submit">저장</button>
+            <button type="button" class="btn btn-ghost" onclick="reload()">취소</button>
+        </form>`;
+}
+
+// 수정 폼 저장 → PUT /api/profiles/me/{kind}/{id}
+async function submitEdit(event, kind, id) {
+    event.preventDefault();
+    const body = Object.fromEntries(new FormData(event.target));
+    try {
+        await api(`/api/profiles/me/${kind}/${id}`, { method: 'PUT', body });
+        document.getElementById('error').hidden = true;
+        await reload();
+    } catch (err) {
+        if (err.status === 401) { location.href = '/login.html'; return; }
+        showError(err.message);
+    }
+}
+
+// ---- 항목 삭제 (kind: 'educations' | 'careers' | 'projects') ----
+async function del(kind, id) {
+    try {
+        await api(`/api/profiles/me/${kind}/${id}`, { method: 'DELETE' });
+        await reload();
+    } catch (err) {
+        showError(err.message);
+    }
+}
+
+// ---- 폼 제출을 API 호출로 연결하는 공통 함수 ----
+// FormData를 { name: value } 객체(JSON)로 바꿔서 보냄
+function bindForm(formId, method, path) {
+    document.getElementById(formId).addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const body = Object.fromEntries(new FormData(e.target));
+        try {
+            await api(path, { method, body });
+            if (formId !== 'profileForm') e.target.reset();   // 추가 폼은 입력칸 비우기
+            document.getElementById('error').hidden = true;
+            await reload();
+        } catch (err) {
+            if (err.status === 401) { location.href = '/login.html'; return; }
+            showError(err.message);
+        }
+    });
+}
+
+// ---- 시작 ----
+(async () => {
+    me = await requireLogin();   // 로그인 안 돼 있으면 로그인 화면으로
+
+    document.getElementById('publicUrl').textContent = '/profile.html?user=' + me.username;
+    document.getElementById('previewLink').href = '/profile.html?user=' + encodeURIComponent(me.username);
+
+    bindForm('profileForm', 'PUT',  '/api/profiles/me');
+    bindForm('eduForm',     'POST', '/api/profiles/me/educations');
+    bindForm('careerForm',  'POST', '/api/profiles/me/careers');
+    bindForm('projectForm', 'POST', '/api/profiles/me/projects');
+
+    await reload();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>로그인</title>
+    <link rel="stylesheet" href="/css/app.css">
+    <script src="/js/app.js"></script>
+</head>
+<body>
+<div class="center">
+    <div class="card">
+        <a class="brand" style="display:block; text-align:center; margin-bottom: 26px; font-size: 22px;" href="/login.html">coder<span class="dot">folio</span></a>
+        <h2>로그인</h2>
+        <p class="subtitle">계정으로 로그인해 주세요.</p>
+
+        <!-- JS가 상황에 따라 채워 넣는 메시지 자리 -->
+        <p class="alert error" id="error" hidden></p>
+        <p class="alert success" id="success" hidden></p>
+
+        <form id="loginForm">
+            <label>아이디</label>
+            <input type="text" name="username" placeholder="아이디를 입력하세요" required>
+            <label>비밀번호</label>
+            <input type="password" name="password" placeholder="비밀번호를 입력하세요" required>
+            <button type="submit" class="full">로그인</button>
+        </form>
+
+        <a class="link" href="/signup.html">계정이 없으신가요? 회원가입</a>
+    </div>
+</div>
+
+<script>
+// 회원가입 직후 넘어온 경우 (?signup=1) 성공 메시지 표시
+if (new URLSearchParams(location.search).has('signup')) {
+    const ok = document.getElementById('success');
+    ok.textContent = '회원가입 완료! 로그인해주세요.';
+    ok.hidden = false;
+}
+
+// 폼 제출 → 새로고침 대신 fetch로 POST /api/auth/login 호출
+document.getElementById('loginForm').addEventListener('submit', async (e) => {
+    e.preventDefault();   // 브라우저 기본 폼 전송(페이지 이동)을 막음
+    const form = new FormData(e.target);
+    try {
+        await api('/api/auth/login', {
+            method: 'POST',
+            body: { username: form.get('username'), password: form.get('password') },
+        });
+        location.href = '/';   // 성공 → 홈으로
+    } catch (err) {
+        const el = document.getElementById('error');
+        el.textContent = err.message;
+        el.hidden = false;
+    }
+});
+</script>
+</body>
+</html>

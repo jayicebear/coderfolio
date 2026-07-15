@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>회원가입</title>
+    <link rel="stylesheet" href="/css/app.css">
+    <script src="/js/app.js"></script>
+</head>
+<body>
+<div class="center">
+    <div class="card">
+        <a class="brand" style="display:block; text-align:center; margin-bottom: 26px; font-size: 22px;" href="/login.html">coder<span class="dot">folio</span></a>
+        <h2>회원가입</h2>
+        <p class="subtitle">새 계정을 만들어 보세요.</p>
+
+        <p class="alert error" id="error" hidden></p>
+
+        <form id="signupForm">
+            <label>아이디</label>
+            <input type="text" name="username" placeholder="사용할 아이디" required>
+            <label>비밀번호</label>
+            <input type="password" name="password" placeholder="사용할 비밀번호" required>
+            <button type="submit" class="full">가입하기</button>
+        </form>
+
+        <a class="link" href="/login.html">이미 계정이 있으신가요? 로그인</a>
+    </div>
+</div>
+
+<script>
+document.getElementById('signupForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = new FormData(e.target);
+    try {
+        await api('/api/auth/signup', {
+            method: 'POST',
+            body: { username: form.get('username'), password: form.get('password') },
+        });
+        location.href = '/login.html?signup=1';   // 성공 → 로그인 화면으로
+    } catch (err) {
+        const el = document.getElementById('error');
+        el.textContent = err.message;   // 예: "이미 존재하는 아이디예요: maru"
+        el.hidden = false;
+    }
+});
+</script>
+</body>
+</html>

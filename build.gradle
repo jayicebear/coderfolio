@@ -1,0 +1,60 @@
+plugins {
+	id 'java'
+	id 'org.springframework.boot' version '4.1.0'
+	id 'io.spring.dependency-management' version '1.1.7'
+}
+
+group = 'com.example'
+version = '0.0.1-SNAPSHOT'
+
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(21)
+	}
+}
+
+repositories {
+	mavenCentral()
+}
+
+dependencies {
+	implementation 'org.springframework.boot:spring-boot-starter-jdbc'
+	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
+	implementation 'org.springframework.security:spring-security-crypto'   // 비밀번호 암호화(BCrypt)용
+	developmentOnly 'org.springframework.boot:spring-boot-devtools'
+	runtimeOnly 'com.mysql:mysql-connector-j'
+	testImplementation 'org.springframework.boot:spring-boot-starter-jdbc-test'
+	testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+// ============================================================
+//  .env 파일을 읽어서 환경변수로 만들어주는 함수
+//  Windows 사용자 환경변수는 새로 고치려면 앱(VS Code) 전체를 재시작해야 해서 번거로움.
+//  대신 프로젝트 폴더에 .env 파일(git에는 안 올라감 - .gitignore 처리됨)을 두고,
+//  Gradle이 bootRun/test를 실행할 때마다 이 파일을 직접 읽어서 그 프로세스에만 주입함.
+//  → 터미널/OS를 재시작할 필요 없이, 파일만 두면 바로 적용됨.
+// ============================================================
+def loadEnvFile() {
+	def envFile = file('.env')
+	def env = [:]
+	if (envFile.exists()) {
+		envFile.eachLine { line ->
+			line = line.trim()
+			if (line && !line.startsWith('#') && line.contains('=')) {
+				def idx = line.indexOf('=')
+				env[line.substring(0, idx).trim()] = line.substring(idx + 1).trim()
+			}
+		}
+	}
+	return env
+}
+
+tasks.named('bootRun') {
+	environment loadEnvFile()
+}
+
+tasks.named('test') {
+	useJUnitPlatform()
+	environment loadEnvFile()
+}

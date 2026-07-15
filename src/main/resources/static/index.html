@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>홈</title>
+    <link rel="stylesheet" href="/css/app.css">
+    <script src="/js/app.js"></script>
+</head>
+<body>
+
+<!-- 상단 네비게이션 바 -->
+<header class="topbar">
+    <div class="topbar-inner">
+        <a class="brand" href="/">coder<span class="dot">folio</span></a>
+        <nav>
+            <a class="active" href="/">홈</a>
+            <a href="/board.html">게시판</a>
+            <a href="/profile-edit.html">내 이력서</a>
+            <a href="#" onclick="logout(); return false;">로그아웃</a>
+        </nav>
+    </div>
+</header>
+
+<div class="center">
+    <div class="card" style="text-align: center;">
+        <div class="avatar" style="margin: 0 auto 16px;" id="avatar"></div>
+        <h2>환영합니다 🎉</h2>
+        <p class="subtitle" id="greeting"></p>
+
+        <a class="btn full" id="profileLink" href="#">내 경력 페이지</a>
+        <a class="btn full btn-ghost" style="margin-top: 10px;" href="/board.html">게시판 가기</a>
+        <a class="link" href="#" onclick="logout(); return false;">로그아웃</a>
+    </div>
+</div>
+
+<script>
+// 페이지 열자마자 로그인 확인 → 안 돼 있으면 requireLogin이 로그인 화면으로 보냄
+(async () => {
+    const me = await requireLogin();   // GET /api/auth/me → { username: "..." }
+    document.getElementById('avatar').textContent = me.username[0];
+    document.getElementById('greeting').textContent = me.username + '님, 로그인 되었습니다.';
+    document.getElementById('profileLink').href = '/profile.html?user=' + encodeURIComponent(me.username);
+})();
+</script>
+</body>
+</html>

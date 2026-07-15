@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>이력서</title>
+    <link rel="stylesheet" href="/css/app.css">
+    <script src="/js/app.js"></script>
+</head>
+<body>
+
+<!-- 상단 네비게이션 바 -->
+<header class="topbar">
+    <div class="topbar-inner">
+        <a class="brand" href="/">coder<span class="dot">folio</span></a>
+        <nav>
+            <a href="/">홈</a>
+            <a href="/board.html">게시판</a>
+        </nav>
+    </div>
+</header>
+
+<div class="page" id="page">
+    <!-- JS가 이력서를 그려 넣는 자리 -->
+</div>
+
+<script>
+(async () => {
+    // 주소의 ?user=maru 에서 조회 대상 아이디를 꺼냄
+    const username = new URLSearchParams(location.search).get('user');
+    const page = document.getElementById('page');
+
+    // 이력서 데이터와 내 로그인 정보를 동시에 요청 (로그인 안 돼 있어도 조회는 가능)
+    const [profile, me] = await Promise.all([
+        api('/api/profiles/' + encodeURIComponent(username)),
+        currentUser(),
+    ]);
+
+    const displayName = (profile.name && profile.name.trim()) ? profile.name : profile.username;
+    const editable = me && me.username === profile.username;   // 본인일 때만 수정 버튼
+    document.title = profile.username + ' 님의 이력서';
+
+    // ===== 기본 정보 헤더 =====
+    let html = `
+        <div class="profile-header">
+            <div class="toolbar" style="margin-bottom: 0;">
+                <div class="profile-head-row">
+                    <div class="avatar">${esc(displayName[0])}</div>
+                    <div>
+                        <p class="name">${esc(displayName)}</p>
+                        <p class="handle">@${esc(profile.username)}</p>
+                        ${ifValue(profile.email, `<span class="email">${esc(profile.email)}</span>`)}
+                    </div>
+                </div>
+                ${editable ? '<a class="btn btn-ghost" href="/profile-edit.html">수정</a>' : ''}
+            </div>
+            ${ifValue(profile.intro, `<p class="intro">${esc(profile.intro)}</p>`)}
+        </div>`;
+
+    // ===== 학력 =====
+    if (profile.educations.length > 0) {
+        html += `
+        <div class="section">
+            <h3>학력</h3>
+            ${profile.educations.map(e => `
+                <div class="item">
+                    <div class="item-top">
+                        <span class="item-title">${esc(e.school)}</span>
+                        ${ifValue(e.period, `<span class="item-period">${esc(e.period)}</span>`)}
+                    </div>
+                    <div class="item-sub">${esc(e.major || '')}${ifValue(e.degree, ' · ' + esc(e.degree))}</div>
+                </div>`).join('')}
+        </div>`;
+    }
+
+    // ===== 경력 =====
+    if (profile.careers.length > 0) {
+        html += `
+        <div class="section">
+            <h3>경력</h3>
+            ${profile.careers.map(c => `
+                <div class="item">
+                    <div class="item-top">
+                        <span class="item-title">${esc(c.company)}</span>
+                        ${ifValue(c.period, `<span class="item-period">${esc(c.period)}</span>`)}
+                    </div>
+                    ${ifValue(c.position, `<div class="item-sub">${esc(c.position)}</div>`)}
+                    ${ifValue(c.description, `<p class="item-desc">${esc(c.description)}</p>`)}
+                </div>`).join('')}
+        </div>`;
+    }
+
+    // ===== 프로젝트 =====
+    if (profile.projects.length > 0) {
+        html += `
+        <div class="section">
+            <h3>프로젝트</h3>
+            ${profile.projects.map(p => `
+                <div class="item">
+                    <div class="item-top">
+                        <span class="item-title">${esc(p.name)}</span>
+                        ${ifValue(p.period, `<span class="item-period">${esc(p.period)}</span>`)}
+                    </div>
+                    ${ifValue(p.description, `<p class="item-desc">${esc(p.description)}</p>`)}
+                    ${ifValue(p.techStack, `<span class="tag">${esc(p.techStack)}</span>`)}
+                </div>`).join('')}
+        </div>`;
+    }
+
+    // 아무것도 없을 때
+    if (profile.educations.length === 0 && profile.careers.length === 0 && profile.projects.length === 0) {
+        html += '<p class="empty">아직 등록된 경력 정보가 없어요.</p>';
+    }
+
+    page.innerHTML = html;
+})();
+</script>
+</body>
+</html>

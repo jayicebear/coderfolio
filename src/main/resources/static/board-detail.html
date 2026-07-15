@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>게시글</title>
+    <link rel="stylesheet" href="/css/app.css">
+    <script src="/js/app.js"></script>
+</head>
+<body>
+
+<!-- 상단 네비게이션 바 -->
+<header class="topbar">
+    <div class="topbar-inner">
+        <a class="brand" href="/">coder<span class="dot">folio</span></a>
+        <nav>
+            <a href="/">홈</a>
+            <a class="active" href="/board.html">게시판</a>
+        </nav>
+    </div>
+</header>
+
+<div class="page" id="post">
+    <!-- JS가 글 내용을 그려 넣는 자리 -->
+</div>
+
+<script>
+const id = new URLSearchParams(location.search).get('id');
+
+// 삭제 버튼: 한 번 더 물어보고 DELETE 요청 → 성공하면 목록으로
+async function deletePost() {
+    if (!confirm('이 글을 삭제할까요?')) return;
+    try {
+        await api('/api/posts/' + id, { method: 'DELETE' });
+        location.href = '/board.html';
+    } catch (err) {
+        alert(err.message);
+    }
+}
+
+(async () => {
+    // 주소의 ?id=3 부분에서 글 번호를 꺼냄 (예전 /board/{id} 경로변수가 하던 역할)
+    const box = document.getElementById('post');
+
+    try {
+        // 글 내용과 내 로그인 정보를 동시에 요청 (로그인 안 해도 글은 볼 수 있음)
+        const [post, me] = await Promise.all([api('/api/posts/' + id), currentUser()]);
+        document.title = post.title;
+
+        // 내가 쓴 글일 때만 수정/삭제 버튼 노출
+        const mine = me && me.username === post.author;
+        box.innerHTML = `
+            <div class="toolbar">
+                <div>
+                    <h2 class="post-title">${esc(post.title)}</h2>
+                    <p class="post-meta" style="margin-bottom:0;">${esc(post.author)} · ${fmtDate(post.createdAt)}</p>
+                </div>
+                ${mine ? `
+                <div style="display:flex; gap:8px; flex:none;">
+                    <a class="btn btn-ghost" href="/board-write.html?id=${post.id}">수정</a>
+                    <button class="btn-del" onclick="deletePost()">삭제</button>
+                </div>` : ''}
+            </div>
+            <div class="post-content">${esc(post.content)}</div>
+            <a class="back" href="/board.html">← 목록으로</a>`;
+    } catch (err) {
+        box.innerHTML = `
+            <p class="empty">${esc(err.message)}</p>
+            <a class="back" href="/board.html">← 목록으로</a>`;
+    }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>글쓰기</title>
+    <link rel="stylesheet" href="/css/app.css">
+    <script src="/js/app.js"></script>
+</head>
+<body>
+
+<!-- 상단 네비게이션 바 -->
+<header class="topbar">
+    <div class="topbar-inner">
+        <a class="brand" href="/">coder<span class="dot">folio</span></a>
+        <nav>
+            <a href="/">홈</a>
+            <a class="active" href="/board.html">게시판</a>
+        </nav>
+    </div>
+</header>
+
+<div class="page">
+    <div class="card wide">
+        <h2 id="heading">글쓰기</h2>
+        <p class="subtitle" id="subtitle">새 글을 작성해 주세요.</p>
+
+        <p class="alert error" id="error" hidden></p>
+
+        <form id="writeForm">
+            <label>제목</label>
+            <input type="text" name="title" placeholder="제목을 입력하세요" required>
+            <label>내용</label>
+            <textarea name="content" placeholder="내용을 입력하세요" required></textarea>
+            <button type="submit" id="submitBtn">등록</button>
+            <a class="btn btn-ghost" href="/board.html">취소</a>
+        </form>
+    </div>
+
+    <a class="back" href="/board.html">← 목록으로</a>
+</div>
+
+<script>
+// 글쓰기는 로그인 필수 (예전 컨트롤러의 세션 검사 → 이제 페이지 진입 시 확인)
+requireLogin();
+
+// ?id=3 이 있으면 "수정 모드": 기존 글을 불러와 폼에 채우고, 등록 대신 PUT으로 보냄
+const editId = new URLSearchParams(location.search).get('id');
+
+if (editId) {
+    document.title = '글 수정';
+    document.getElementById('heading').textContent = '글 수정';
+    document.getElementById('subtitle').textContent = '내용을 고친 뒤 저장해 주세요.';
+    document.getElementById('submitBtn').textContent = '수정 완료';
+
+    // 기존 글 내용을 폼에 미리 채움
+    (async () => {
+        const post = await api('/api/posts/' + editId);
+        const form = document.getElementById('writeForm');
+        form.title.value = post.title;
+        form.content.value = post.content;
+    })();
+}
+
+document.getElementById('writeForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = new FormData(e.target);
+    const body = { title: form.get('title'), content: form.get('content') };
+    try {
+        if (editId) {
+            await api('/api/posts/' + editId, { method: 'PUT', body });   // 수정
+            location.href = '/board-detail.html?id=' + editId;            // 수정한 글로 돌아감
+        } else {
+            await api('/api/posts', { method: 'POST', body });            // 새 글 등록
+            location.href = '/board.html';
+        }
+    } catch (err) {
+        if (err.status === 401) { location.href = '/login.html'; return; }
+        const el = document.getElementById('error');
+        el.textContent = err.message;
+        el.hidden = false;
+    }
+});
+</script>
+</body>
+</html>

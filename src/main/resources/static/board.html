@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>게시판</title>
+    <link rel="stylesheet" href="/css/app.css">
+    <script src="/js/app.js"></script>
+</head>
+<body>
+
+<!-- 상단 네비게이션 바 -->
+<header class="topbar">
+    <div class="topbar-inner">
+        <a class="brand" href="/">coder<span class="dot">folio</span></a>
+        <nav>
+            <a href="/">홈</a>
+            <a class="active" href="/board.html">게시판</a>
+        </nav>
+    </div>
+</header>
+
+<div class="page">
+    <div class="toolbar">
+        <div class="page-head" style="margin-bottom: 0;">
+            <h2>게시판</h2>
+            <p class="desc">자유롭게 글을 남겨보세요.</p>
+        </div>
+        <a class="btn" href="/board-write.html">글쓰기</a>
+    </div>
+
+    <!-- JS가 목록을 그려 넣는 자리 -->
+    <div id="list"></div>
+</div>
+
+<script>
+(async () => {
+    const posts = await api('/api/posts');   // JSON 배열: [{ id, title, author, createdAt, ... }]
+    const box = document.getElementById('list');
+
+    if (posts.length === 0) {
+        box.innerHTML = '<p class="empty">아직 작성된 글이 없어요.</p>';
+        return;
+    }
+
+    // 배열을 돌면서 행(tr)을 만들어 테이블 완성 (예전 th:each가 하던 일)
+    box.innerHTML = `
+        <table class="board">
+            <thead><tr><th>제목</th><th>작성자</th><th>작성일</th></tr></thead>
+            <tbody>
+                ${posts.map(p => `
+                    <tr>
+                        <td><a href="/board-detail.html?id=${p.id}">${esc(p.title)}</a></td>
+                        <td class="col-meta">${esc(p.author)}</td>
+                        <td class="col-meta">${fmtDate(p.createdAt)}</td>
+                    </tr>`).join('')}
+            </tbody>
+        </table>`;
+})();
+</script>
+</body>
+</html>
